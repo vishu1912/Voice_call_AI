@@ -20,10 +20,14 @@ def chat():
     if not user_input:
         return jsonify({"response": "Please enter a message."})
 
-    print(f"User: {user_input}")
+    # 🧠 Add user input to messages
+    session_state["messages"].append(HumanMessage(content=user_input))
+
+    # 🔄 Invoke the flow
     updated_state = pbx_flow.invoke(session_state)
     session_state.update(updated_state)
 
+    # 📤 Response
     response_text = updated_state.get("summary") or "Got it! Anything else?"
     return jsonify({"response": response_text})
 
