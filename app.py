@@ -1,5 +1,3 @@
-# pbx1_langgraph_agent.py
-
 import os
 from dotenv import load_dotenv
 from typing import List
@@ -35,6 +33,7 @@ class AgentState(TypedDict):
 # 🛠️ Tool: Add to order
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
+    """Add a menu item to the current order if it exists in the known list."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
         "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
@@ -49,6 +48,7 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 # 📋 Tool: Order summary
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
+    """Generate a summary of the items currently in the user's order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
