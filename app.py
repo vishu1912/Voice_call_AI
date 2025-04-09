@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 from dotenv import load_dotenv
 from pbx1_langgraph_agent import pbx_flow, init_state
+from langchain_core.messages import HumanMessage
 
 # Load environment variables and API key
 load_dotenv()
