@@ -16,23 +16,27 @@ from langchain_core.runnables import RunnableLambda
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# LLM setup
-llm = ChatGoogleGenerativeAI(model="gemini-pro", api_key=GOOGLE_API_KEY)
+# Initialize Gemini LLM with proper API version and model path
+llm = ChatGoogleGenerativeAI(
+    model="models/gemini-pro",  # Updated model format
+    api_key=GOOGLE_API_KEY,
+    api_version="v1"            # Required for compatibility
+)
 
-# Define state
+# Define state using TypedDict
 class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
 
-# Initialize state
+# Initialize state with empty values
 def init_state():
     return AgentState(messages=[], order=[], summary="")
 
-# 🧰 Tool to add items to order
+# 🧰 Tool: Add an item to the order
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add a specific item to the order."""
+    """Add a specific item to the user's order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
         "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
@@ -44,10 +48,10 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
         state["summary"] = f"❌ Sorry, {item} is not on the menu."
     return state
 
-# 🧾 Tool to summarize order
+# 🧾 Tool: Summarize the current order
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
+    """Generate a human-readable summary of the order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -57,22 +61,22 @@ def generate_order_summary(state: AgentState) -> AgentState:
         state["summary"] = "\n".join(lines)
     return state
 
-# 🗣️ User input node
+# 🗣️ Process user input
 def user_message_node(state: AgentState) -> AgentState:
     print(f"User message: {state['messages'][-1].content}")
     return state
 
-# 🤖 LLM response node
+# 🤖 Generate Gemini response
 def gemini_node(state: AgentState) -> AgentState:
     response = llm.invoke(state["messages"])
     state["messages"].append(response)
     state["summary"] = response.content
     return state
 
-# LangGraph ToolNode
+# Tool wrapper node
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
-# StateGraph logic
+# Build the state graph with typed schema
 builder = StateGraph(AgentState)
 
 builder.add_node("user_node", RunnableLambda(user_message_node))
@@ -81,14 +85,12 @@ builder.add_node("tool_node", tool_node)
 
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
-builder.add_conditional_edges(
-    "llm_node", tools_condition, {
-        "add_to_order": "tool_node",
-        "generate_order_summary": "tool_node",
-        "default": END
-    }
-)
+builder.add_conditional_edges("llm_node", tools_condition, {
+    "add_to_order": "tool_node",
+    "generate_order_summary": "tool_node",
+    "default": END
+})
 builder.add_edge("tool_node", END)
 
-# Compile flow
+# Final compiled flow
 pbx_flow = builder.compile()
