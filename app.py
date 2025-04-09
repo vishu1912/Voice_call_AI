@@ -28,6 +28,20 @@ respond with: `{{CALL:generate_order_summary()}}`.
 Only call these functions if you're sure the item exists in the menu.
 """
 
+# Add memory and conversational behavior instructions
+CONVERSATIONAL_PROMPT = """
+Act like a helpful and conversational pizza assistant.
+
+- Only answer about the specific item(s) the user asks for.
+- DO NOT provide unrelated categories or menu items unless directly requested.
+- If the user asks about pizza, explain the process (build your own or choose from vegetarian, chicken, meat, etc.).
+- Then ask ONE question at a time (e.g., size → crust → sauce → toppings → spice level).
+- Remember the user's previous answers to avoid repeating questions unnecessarily.
+- Confirm the full pizza configuration after collecting all necessary details.
+- Ask if they want to add drinks, dips, or other items, but only if they give a clear YES and what they want (e.g., "yes, add a drink").
+- Ask clarifying questions for vague responses like just "yes" or "okay".
+"""
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -45,6 +59,9 @@ Please respond using this formatting style below for the user's request:
 
 - Use bullet points with line breaks.
 - Bold category headers like **Wings**, **Lasagna**, **Drinks**, etc.
+- Only answer about the specific item(s) the user asks for. Do NOT provide unrelated categories or items unless they are directly requested.
+
+{CONVERSATIONAL_PROMPT}
 
 {ORDER_TOOL_PROMPT}
 
@@ -52,7 +69,7 @@ Please respond using this formatting style below for the user's request:
 
 User: {user_input}
 Assistant:
-    """
+"""
 
     response = model.generate_content(prompt)
     reply = response.text.strip()
