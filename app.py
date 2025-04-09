@@ -108,7 +108,11 @@ def home():
 # Flask route: Chatbot interaction
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_input = request.form["user_input"]
+    data = request.get_json()
+    user_input = data.get("message")
+    if not user_input:
+        return jsonify({"response": "⚠️ No message received."}), 400
+
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
