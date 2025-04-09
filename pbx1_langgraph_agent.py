@@ -30,7 +30,7 @@ class AgentState(TypedDict):
     summary: str
 
 def init_state():
-    return AgentState(messages=[], order=[], summary="")
+    return AgentState(messages=[SystemMessage(content=MENU_PROMPT)], order=[], summary="")
 
 # Tool: Add to order
 @tool
