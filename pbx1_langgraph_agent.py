@@ -16,24 +16,23 @@ from langchain_core.runnables import RunnableLambda
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Initialize Gemini LLM with proper API version and model path
+# ✅ FIX: Use correct model path and API version
 llm = ChatGoogleGenerativeAI(
-    model="models/gemini-pro",  # Updated model format
+    model="gemini-pro",  # NOT "models/gemini-pro"
     api_key=GOOGLE_API_KEY,
-    api_version="v1"            # Required for compatibility
+    api_version="v1beta"  # Must match what's supported
 )
 
-# Define state using TypedDict
+# Agent state
 class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
 
-# Initialize state with empty values
 def init_state():
     return AgentState(messages=[], order=[], summary="")
 
-# 🧰 Tool: Add an item to the order
+# Tool: Add to order
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
     """Add a specific item to the user's order."""
@@ -48,7 +47,7 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
         state["summary"] = f"❌ Sorry, {item} is not on the menu."
     return state
 
-# 🧾 Tool: Summarize the current order
+# Tool: Order summary
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
     """Generate a human-readable summary of the order."""
@@ -61,22 +60,25 @@ def generate_order_summary(state: AgentState) -> AgentState:
         state["summary"] = "\n".join(lines)
     return state
 
-# 🗣️ Process user input
+# Human message node
 def user_message_node(state: AgentState) -> AgentState:
+    if not state["messages"]:
+        state["summary"] = "❌ No message provided."
+        return state
     print(f"User message: {state['messages'][-1].content}")
     return state
 
-# 🤖 Generate Gemini response
+# Gemini response
 def gemini_node(state: AgentState) -> AgentState:
     response = llm.invoke(state["messages"])
     state["messages"].append(response)
     state["summary"] = response.content
     return state
 
-# Tool wrapper node
+# ToolNode for LangGraph
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
-# Build the state graph with typed schema
+# Graph logic
 builder = StateGraph(AgentState)
 
 builder.add_node("user_node", RunnableLambda(user_message_node))
@@ -92,5 +94,4 @@ builder.add_conditional_edges("llm_node", tools_condition, {
 })
 builder.add_edge("tool_node", END)
 
-# Final compiled flow
 pbx_flow = builder.compile()
