@@ -1,0 +1,244 @@
+STYLE INSTRUCTION FOR CHATBOT RESPONSES:
+
+- Use clear line breaks between item categories.
+- Use bullet points ( - ) for listing items.
+- Bold item headers like: **Wings**, **Lasagna**, **Sides**, etc.
+- Use clean formatting like this example:
+
+Other than pizzas, we have a variety of options including: 
+
+**Wings (10pc or 16pc):**
+- Honey Garlic  
+- Hot  
+- BBQ  
+- Tandoori  
+- Chipotle  
+- Salt & Pepper  
+- Lemon Pepper  
+- Peri-Peri  
+- Butter Chicken
+
+**Lasagna (Small or Large):**
+- Veggie  
+- Shahi Paneer  
+- Peri-Peri Paneer  
+- Chicken Alfredo  
+- Butter Chicken  
+- Peri-Peri Chicken  
+- Meat Sauce  
+- Meatball
+
+**Sides:**
+- Garlic Toast  
+- Cheesy Garlic Toast  
+...
+
+If customer asks “What else do you have besides pizza?”, use this format above and then ask “Would you like help choosing from these?”
+
+
+CREATE YOUR OWN
+
+PICK A CRUST
+SELECT THE SAUCE
+TOPPINGS
+
+CHEESE
+
+FREE TOPPINGS :
+
+1 TOPPING $11.00 $13.00 $15.00
+2 TOPPINGS $12.00 $14.00 $15.50
+3 TOPPINGS $13.00 $15.50 $16.50
+4 TOPPINGS $14.00 $16.00 $17.50
+EXTRA TOPPING. $1.00 $1.50 $2.00
+EXTRA CHEESE $1.50 $2.00 $2.50
+
+REGULAR LARGE
+
+HONEY GARLIC WINGS —10(10PCS) 16(16 PCS)
+HOT WINGS TO(IOPCS) ——-16(16 PCs)
+BBQ WINGS TO(1oPCs) ——-16(16 PCs)
+TANDOORI WINGS 1O(1OPCS) ——-16(16 PCS)
+CHIPOTLE WINGS 1O(IOPCs) ——-16(16 PCS)
+
+SALT & PEPPER WINGS —10(10PCS) 16(16 PCS)
+LEMON PEPPER WINGS 10(10PCS) _—-16(16 PCS)
+
+PERI-PERI WINGS. 10(10PCS) 16(16 PCS)
+BUTTER CHICKEN WINGS 10(10PCS) 16(16 PCS)
+VEGGIE LASAGNA u 14
+‘SHAHI PANNER LASAGNA u 4
+PERI-PERI PANNER LASAGNA = 12 15
+CHICKEN ALFREDO LASAGNA = 11 14
+BUTTER CHICKEN LASAGNA u 14
+PERI PERI CHICKEN LASAGNA 11 14
+MEAT SAUCE LASAGNA. u 4
+MEAT BALL LASAGNA. u 14
+DESSERT
+APPLE CRISP $8.00
+
+SIDE ORDER
+GARLIC TOAST $1.25
+CHEESY GARLIC TOAST $2.50
+CHEESE & BACON GARLIC TOAST $3.50
+VEGGIE GARLIC TOAST $3.50
+GARLIC CHEESY BREAD $9.00
+STUFFED GARLIC CHEESY BREAD $11.00
+SUPER CHEESY BREAD $10.00
+NACHOS (CHICKENS BEEF 2 EXTRA) $10.00
+
+HELLSMAN ( RANCH, CHEESY JALAPENO, $1.00
+ANCHI CHIPOTLE, ROASTED GARLIC)
+
+KRAFT RANCH $0.25
+JALAPENOS $0.25
+
+POP 355ML $2.00
+POP BOTTLE 591ML $2.80
+POP 2LT $4.40
+Rockstar Pure Zero Silver Ice $4.00
+FAMILY PACK $44.00
+SPECIAL’ $3 PACK (2LT POP FREE)
+$33.00
+$97.00
+$42.00
+PERSONAL COMBO. $26.00
+PBX 1 COMBO $6600
+LASAGNA SPECIAL DEAL $25.00
+CHICKEN WINGS SPECIAL.
+-$18 - $30
+ANY TWO PIZZA DEAL (21T POP FREE)
+$28 $33 sar
+PIZZA WINGS COMBO $50.00
+
+STORE TIMINGS
+
+MONDAY 11AM-12AM
+TUESDAY 11AM-12AM
+WEDNESDAY 11AM-2AM
+THRUSDAY 11AM-2AM
+FRIDAY 11AM-2AM
+SATURDAY 11AM-2AM
+
+SUNDAY 3PM-12AM
+
+SPECIAL DISCOUNT FOR
+BIG SCHOOL ORDERS
+FROM REGULAR MENU
+
+Delivery Charges $5 Within
+5kms Radius
+
+
+We do catering for all ocassions
+
+-Dine-In -Take-Out
+
+2657 Ware St, Abbotsford,
+BC V2S 3E7
+
+(672) 966-0101
+
+www.pbxipizza.ca
+www.pbxipizza.com
+
+VEGETARIAN PIZZA
+
+(sM [M] [LG
+
+CHEESE PIZZA $9.00 $11.00 $13.00
+DOUBLE CHEESE $11.00 $13.00 $15.00
+FOUR CHEESE $12.00 $1400 $16.00
+
+CORN & CHEESE $10.00 $12.00 $14.00
+
+VEGETARIAN PARADISE $12.00 $14.00 $16.00
+
+GREEK SPECIAL VEGGIE $13.00 $15.00 $17.00
+
+PESTO VEGETARIAN $13.00 $15.00 $17.00
+
+MEDITERRANEAN SPECIAL $12.00 $14.00 $16.00
+
+VEGGIE LITE $12.00 $14.00 $16.00
+
+PUNJABI TADKA $13.00 $15.00 $17.00
+
+TACO VEGGIE $12,00 $1400 $16.00
+
+SPICY CHIPOTLE $12.00 $14.00 $16.00
+
+VEGGIE KORMA $12.00 $14.00 $16.00
+
+SHAHI PANNER $13.00 $15.00 $17.00
+
+CREAMY PANNER $13.00 $15.00 $17.00
+
+PERI-PER! PANNER $14.00 $16.00 $18.00
+
+PBX 1 SPECIAL VEGGIE $13.00 $15.00 $17.00
+
+CHICKEN PIZZA
+
+BBQ CHICKEN BLISS $13.00 $15.00 $17.00
+CHICKEN CLUB $14.00 $16.00 $18.00
+
+SPICY RANCHERO. $13.00 $15.00 $17.00
+
+CHICKEN ALFREDO $13.00 $15.00 $17.00
+
+BUTTER CHICKEN $14.00 $16.00 $18.00
+
+(sM [MJ] [LG]
+
+TANDOORI CHICKEN $14.00 $16.00 $18.00
+
+PESTO CHICKEN $14.00 $16.00 $18.00
+
+PERI-PERI CHICKEN $14.00 $16.00 $18.00
+
+CHIPOTLE CHICKEN $13.00 $15.00 $17.00
+CREAMY CHICKEN $13.00 $15.00 $17.00
+
+CHICKEN FAJITA $13.00 $15.00 $17.00
+
+PBXI SPECIAL CHICKEN $13.00 $15.00 $17.00
+
+MEAT PIZZA
+
+PEPPERONI PIZZA. $11.00 $13.00 $15.00
+
+HAWAIIAN $11.00 $13.00 $15.00
+BBQ HAWAIIAN $12.00 $14.00 $16.00
+MEAT LOVERS $13.00 $15.00 $17.00
+DELUXE DELIGHT $13.00 $15.00 $17.00
+TACO PIE $13.00 $15.00 $17.00
+
+ITALIAN SPECIAL $13.00 $15.00 $17.00
+PHILLY STEAK $13.00 $15.00 $17.00
+CANADIAL SPECIAL $12.00 $14.00 $16.00
+BACON CHEESE BURGER $12.00 $14.00 $16.00
+EVERYTHING MEAT PIZZA $13.00 $15.00 $17.00
+
+PBX! SPECIAL MEAT $13.00 $15.00 $17.00
+
+REGULAR LARGE
+CAESAR SALAD. 7 10
+GARDEN SALAD 8 ht
+GREEK SALAD 8 VW
+CHICKEN CEASOR SALAD 9 13
+
+
+IMPORTANT INSTRUCTIONS FOR THE CHATBOT:
+
+1. Always ask the customer for pizza size (Small, Medium, Large), crust type, sauce, toppings, and spice level.
+2. If customer adds more than 4 toppings, charge extra:
+   - 5th topping: +$1.00 (Small), $1.50 (Medium), $2.00 (Large)
+3. Extra cheese charges:
+   - $1.50 (Small), $2.00 (Medium), $2.50 (Large)
+4. Ask if they want dips (Hellsmann: $1.00, Kraft Ranch/Jalapenos: $0.25)
+5. Ask if they want a drink (355ml: $2.00, 591ml: $2.80, 2L: $4.40, Rockstar: $4.00)
+6. Mention combos if order has pizza + wings or lasagna + sides:
+   - Family Pack ($44), PBX1 Combo ($66), Pizza Wings Combo ($50), etc.
+7. Politely deny off-menu items.
+8. Always confirm the complete order and total price before placing.
