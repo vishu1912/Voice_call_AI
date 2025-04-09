@@ -4,69 +4,93 @@
   <meta charset="UTF-8" />
   <title>PBX1 Pizza Chatbot</title>
   <style>
-    body {
-      background: #fef8ed;
-      font-family: Arial, sans-serif;
-    }
+  body {
+    margin: 0;
+    background: #fef8ed;
+    font-family: Arial, sans-serif;
+  }
 
+  .chat-container {
+    background-color: #ffffff;
+    max-width: 500px;
+    width: 90%;
+    margin: 20px auto;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    text-align: center;
+  }
+
+  .logo {
+    width: 80px;
+    height: auto;
+    margin: 0 auto 10px;
+  }
+
+  #chatbox {
+    display: none;
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 15px 0;
+    background-color: #f9f9f9;
+    text-align: left;
+  }
+
+  .user, .bot {
+    margin: 10px 0;
+  }
+
+  .timestamp {
+    font-size: 0.75em;
+    color: #999;
+  }
+
+  .bot b {
+    color: #e77e23;
+  }
+
+  #userInput {
+    width: 100%;
+    height: 40px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+
+  button {
+    width: 100%;
+    height: 40px;
+    border-radius: 5px;
+    background-color: #ffaf40;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+  }
+
+  /* 🔽 Mobile Specific Styling */
+  @media screen and (max-width: 600px) {
     .chat-container {
-      background-color: #ffffff;
-      width: 400px;
-      margin: 50px auto;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-      text-align: center;
+      padding: 15px;
     }
 
     .logo {
-      width: 100px;
-      display: block;
-      margin: 0 auto 10px;
+      width: 60px;
     }
 
     #chatbox {
-      display: none;
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin: 15px 0;
-      background-color: #f9f9f9;
-      text-align: left;
-      height: 300px;
-      overflow-y: auto;
+      height: 250px;
     }
 
-    .user, .bot {
-      margin: 10px 0;
+    #userInput, button {
+      font-size: 1rem;
     }
-
-    .timestamp {
-      font-size: 0.75em;
-      color: #999;
-    }
-
-    .bot b {
-      color: #e77e23;
-    }
-
-    #userInput {
-      width: 70%;
-      height: 40px;
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      height: 40px;
-      padding: 0 15px;
-      border-radius: 5px;
-      background-color: #ffaf40;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
   <div class="chat-container">
