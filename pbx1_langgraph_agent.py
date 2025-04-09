@@ -1,5 +1,3 @@
-# pbx1_langgraph_agent.py
-
 import os
 from dotenv import load_dotenv
 from typing_extensions import TypedDict
@@ -16,26 +14,36 @@ from langchain_core.runnables import RunnableLambda
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# ✅ FIX: Use correct model path and API version
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",  # NOT "models/gemini-pro"
-    api_key=GOOGLE_API_KEY,
-    api_version="v1beta"  # Must match what's supported
-)
+# Load the menu prompt from a file
+MENU_PROMPT = ""
+try:
+    with open("menu_prompt.txt", "r", encoding="utf-8") as file:
+        MENU_PROMPT = file.read()
+except Exception as e:
+    MENU_PROMPT = "Welcome to PBX1! What would you like to order?"  # fallback
+    print(f"⚠️ Could not load menu_prompt.txt: {e}")
 
-# Agent state
+# Set up Gemini LLM
+llm = ChatGoogleGenerativeAI(model="models/chat-bison-001", api_key=GOOGLE_API_KEY)
+
+# Define agent state
 class AgentState(TypedDict):
-    messages: List[HumanMessage]
+    messages: List
     order: List[str]
     summary: str
 
-def init_state():
-    return AgentState(messages=[SystemMessage(content=MENU_PROMPT)], order=[], summary="")
+# Initialize state
+def init_state() -> AgentState:
+    return AgentState(
+        messages=[SystemMessage(content=MENU_PROMPT)],
+        order=[],
+        summary=""
+    )
 
-# Tool: Add to order
+# 🧰 Tool to add an item to the order
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add a specific item to the user's order."""
+    """Add a specific item to the order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
         "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
@@ -47,10 +55,10 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
         state["summary"] = f"❌ Sorry, {item} is not on the menu."
     return state
 
-# Tool: Order summary
+# 🧾 Tool to generate order summary
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a human-readable summary of the order."""
+    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -60,22 +68,19 @@ def generate_order_summary(state: AgentState) -> AgentState:
         state["summary"] = "\n".join(lines)
     return state
 
-# Human message node
+# 🗣️ User message processor
 def user_message_node(state: AgentState) -> AgentState:
-    if not state["messages"]:
-        state["summary"] = "❌ No message provided."
-        return state
     print(f"User message: {state['messages'][-1].content}")
     return state
 
-# Gemini response
+# 🤖 Gemini LLM response
 def gemini_node(state: AgentState) -> AgentState:
     response = llm.invoke(state["messages"])
     state["messages"].append(response)
     state["summary"] = response.content
     return state
 
-# ToolNode for LangGraph
+# Tool wrapper
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
 # Graph logic
@@ -87,11 +92,16 @@ builder.add_node("tool_node", tool_node)
 
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
-builder.add_conditional_edges("llm_node", tools_condition, {
-    "add_to_order": "tool_node",
-    "generate_order_summary": "tool_node",
-    "default": END
-})
+builder.add_conditional_edges(
+    "llm_node",
+    tools_condition,
+    {
+        "add_to_order": "tool_node",
+        "generate_order_summary": "tool_node",
+        "default": END
+    }
+)
 builder.add_edge("tool_node", END)
 
+# Compile the flow
 pbx_flow = builder.compile()
