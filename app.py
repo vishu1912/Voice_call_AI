@@ -1,4 +1,4 @@
-# ✅ app.py (Final version with Square checkout integration)
+# app.py (Finalized with square checkout + role reinforcement)
 
 import os
 from dotenv import load_dotenv
@@ -27,18 +27,28 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Load prompt
+# Load menu prompt and reinforce role
 with open("menu_prompt.txt", "r") as f:
-    MENU_PROMPT = f.read()
+    base_prompt = f.read()
 
-# Gemini LLM setup
+ROLE_INSTRUCTION = """
+You are PBXguy, a helpful pizza ordering chatbot for PBX1 Pizza in Abbotsford.
+You ONLY talk about the restaurant, the menu, orders, and payments.
+Never answer questions outside of placing or confirming orders.
+You must follow this process: menu > item > pickup/delivery > summary > payment link.
+You NEVER break character or act as a general-purpose AI.
+"""
+
+MENU_PROMPT = ROLE_INSTRUCTION + "\n\n" + base_prompt
+
+# Gemini setup
 gemini_llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     api_key=GOOGLE_API_KEY
 )
 
-# Fetch Square menu
-SQUARE_MENU = get_square_menu_items(full_data=True)
+# Menu from Square
+SQUARE_MENU = get_square_menu_items()
 
 # Agent State
 class AgentState(TypedDict):
@@ -52,7 +62,7 @@ class AgentState(TypedDict):
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
+    """Add item to current order if it's valid."""
     if item.lower() in [i.lower() for i in SQUARE_MENU.keys()]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
@@ -62,7 +72,7 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
+    """Summarize current items in order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -78,17 +88,20 @@ def generate_order_summary(state: AgentState) -> AgentState:
 
 @tool
 def finalize_order(state: AgentState) -> AgentState:
-    """Finalize the order and return a Square payment link."""
+    """Create Square checkout link and update summary."""
     if not state["order"]:
-        state["summary"] = "🧾 Your order is empty. Please add some items before checkout."
+        state["summary"] = "You need to add items before checking out."
         return state
+
+    # Reinforce role right before checkout
+    state["messages"].append(SystemMessage(content="You are PBXguy from PBX1 Pizza. Confirm order and give Square link only."))
 
     try:
         checkout_url = create_square_checkout(state["order"])
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Great! You can complete your order here:\n\n🔗 {checkout_url}\n\nOnce paid, we’ll prepare your order for pickup or delivery. Thanks!"
+        state["summary"] = f"✅ Your order is ready. Pay securely here: {checkout_url}"
     except Exception as e:
-        state["summary"] = f"❌ There was an issue creating your checkout link: {e}"
+        state["summary"] = f"❌ Could not create checkout. {e}"
     return state
 
 # LangGraph nodes
@@ -102,11 +115,14 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
+# Tool routing
+
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     content = last_message.content.lower()
 
-    if any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit"]):
+    # Force checkout tool based on user intent
+    if any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit", "pickup", "delivery"]):
         return "finalize_order"
 
     tool_calls = getattr(last_message, "tool_calls", [])
@@ -118,7 +134,8 @@ def fixed_tools_condition(state: AgentState):
         return tool_call["tool"]
     return "default"
 
-# Initial state
+# Init state
+
 def init_state() -> AgentState:
     return AgentState(
         messages=[SystemMessage(content=MENU_PROMPT)],
@@ -129,7 +146,7 @@ def init_state() -> AgentState:
         payment_link=None
     )
 
-# Build graph
+# Graph build
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
 
 builder = StateGraph(AgentState)
@@ -149,7 +166,7 @@ builder.add_edge("tool_node", END)
 
 pbx_flow = builder.compile()
 
-# Routes
+# Flask routes
 @app.route("/")
 def home():
     return render_template("index.html")
