@@ -1,4 +1,4 @@
-# app.py (FINALIZED with Square checkout & redirect handling)
+# app.py (UPDATED with Square integration and checkout trigger fix)
 
 import os
 from dotenv import load_dotenv
@@ -86,7 +86,7 @@ def finalize_order(state: AgentState) -> AgentState:
     try:
         checkout_url = create_square_checkout(state["order"])
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Please complete your payment here: {checkout_url}"
+        state["summary"] = f"✅ Your order is ready. Pay here: {checkout_url}"
     except Exception as e:
         state["summary"] = f"❌ Could not create checkout. {e}"
     return state
@@ -102,11 +102,18 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
+# ✅ Updated logic to trigger checkout tool on relevant phrases
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
+    content = last_message.content.lower()
+
+    if any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit"]):
+        return "finalize_order"
+
     tool_calls = getattr(last_message, "tool_calls", [])
     if not tool_calls:
         return "default"
+
     tool_call = tool_calls[0]
     if isinstance(tool_call, dict) and "tool" in tool_call:
         return tool_call["tool"]
@@ -162,7 +169,3 @@ def chat():
     session["state"] = updated_state
 
     return jsonify({"response": updated_state["summary"]})
-
-@app.route("/thanks")
-def thanks():
-    return render_template("thanks.html")
