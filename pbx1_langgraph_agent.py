@@ -90,18 +90,20 @@ builder.add_edge("user_node", "llm_node")
 # Custom tool router
 def route_tools(state: AgentState) -> str:
     msg = state["messages"][-1].content.lower()
-    if "add" in msg or "order" in msg:
+
+    if any(keyword in msg for keyword in [
+        "add", "order", "get", "want", "pizza", "wings", "lasagna", "cheesy bread", "garlic", "salad", "rockstar", "pop", "drink"
+    ]):
         return "add_to_order"
-    elif "summary" in msg or "what's in" in msg:
+
+    if "summary" in msg or "what did i order" in msg or "show order" in msg:
         return "generate_order_summary"
+
+    if any(keyword in msg for keyword in ["joke", "ai", "who are you", "what else", "more", "funny", "history", "help me"]):
+        # Redirect back with a focused message instead of hallucinating
+        state["summary"] = "I'm just your friendly PBX1 Pizza assistant 🍕 Let me help with your order — what would you like today?"
+        return "default"
+
     return "default"
-
-builder.add_conditional_edges("llm_node", route_tools, {
-    "add_to_order": "tool_node",
-    "generate_order_summary": "tool_node",
-    "default": END
-})
-
-builder.add_edge("tool_node", END)
 
 pbx_flow = builder.compile()
