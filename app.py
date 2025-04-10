@@ -12,9 +12,6 @@ from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
-from square_menu import get_square_menu_items
-from square_checkout import create_square_checkout
-
 # Load environment variables
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -35,9 +32,6 @@ gemini_llm = ChatGoogleGenerativeAI(
     api_key=GOOGLE_API_KEY
 )
 
-# Load full Square menu
-SQUARE_MENU = get_square_menu_items(full_data=True)
-
 # Define user session state
 class AgentState(TypedDict):
     messages: List[HumanMessage]
@@ -45,18 +39,13 @@ class AgentState(TypedDict):
     summary: str
     pizza_size: Optional[str]
     crust_type: Optional[str]
-    fulfillment_type: Optional[str]  # pickup or delivery
-    payment_link: Optional[str]
 
 # Tool: Add to order
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item from the menu to the order."""
-    if item.lower() in [i.lower() for i in SQUARE_MENU.keys()]:
-        state["order"].append(item)
-        state["summary"] = f"✅ Added {item} to your order."
-    else:
-        state["summary"] = f"❌ Sorry, {item} is not on the menu."
+    """Add an item to the customer's order."""
+    state["order"].append(item)
+    state["summary"] = f"✅ Added {item} to your order."
     return state
 
 # Tool: Generate summary
@@ -76,28 +65,6 @@ def generate_order_summary(state: AgentState) -> AgentState:
         state["summary"] = "\n".join(lines)
     return state
 
-# Tool: Finalize order & generate Square link
-@tool
-def finalize_order(state: AgentState) -> AgentState:
-    """Finalize and generate Square payment link."""
-    if not state["order"]:
-        state["summary"] = "🧾 Your order is empty. Please add items."
-        return state
-
-    try:
-        checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
-        state["payment_link"] = checkout_url
-        state["summary"] = (
-            f"✅ Your order is confirmed. <br><br>"
-            f"<b>Click to pay securely:</b><br>"
-            f"<a href='{checkout_url}' target='_blank' rel='noopener noreferrer'>{checkout_url}</a><br><br>"
-            f"Once payment is complete, we’ll start preparing your order!"
-        )
-    except Exception as e:
-        state["summary"] = f"❌ Could not generate payment link: {e}"
-    return state
-    print("Checkout URL:", checkout_url)  # ← add this line
-
 # Graph nodes
 def user_message_node(state: AgentState) -> AgentState:
     return state
@@ -112,11 +79,10 @@ def gemini_node(state: AgentState) -> AgentState:
 def fixed_tools_condition(state: AgentState):
     last_msg = state["messages"][-1].content.lower()
 
-    if any(keyword in last_msg for keyword in [
-        "pay", "payment", "checkout", "finalize", "order now",
-        "place order", "complete order", "card", "debit", "credit"
-    ]):
-        return "finalize_order"
+    if any(keyword in last_msg for keyword in ["add", "order", "want"]):
+        return "add_to_order"
+    if "summary" in last_msg or "what did I order" in last_msg:
+        return "generate_order_summary"
 
     tool_calls = getattr(state["messages"][-1], "tool_calls", [])
     if tool_calls:
@@ -133,14 +99,12 @@ def init_state() -> AgentState:
         order=[],
         summary="",
         pizza_size=None,
-        crust_type=None,
-        fulfillment_type=None,
-        payment_link=None
+        crust_type=None
     )
 
 # Build LangGraph
 builder = StateGraph(AgentState)
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
 builder.add_node("user_node", RunnableLambda(user_message_node))
 builder.add_node("llm_node", RunnableLambda(gemini_node))
@@ -151,7 +115,6 @@ builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "add_to_order": "tool_node",
     "generate_order_summary": "tool_node",
-    "finalize_order": "tool_node",
     "default": END
 })
 builder.add_edge("tool_node", END)
