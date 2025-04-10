@@ -13,14 +13,12 @@ HEADERS = {
 
 BASE_URL = "https://connect.squareup.com/v2"
 
-
 def fetch_square_catalog():
     url = f"{BASE_URL}/catalog/list"
-    params = {"types": "ITEM,MODIFIER_LIST"}  # Add IMAGE if needed
+    params = {"types": "ITEM,MODIFIER_LIST"}
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
     return response.json()
-
 
 def get_catalog_items():
     catalog = fetch_square_catalog()
@@ -43,12 +41,25 @@ def get_catalog_items():
 
     return items, modifiers
 
+def get_square_menu_items():
+    items, _ = get_catalog_items()
+    simplified_menu = {}
+
+    for name, data in items.items():
+        variations = data.get("variations", [])
+        prices = []
+        for v in variations:
+            var_data = v.get("item_variation_data", {})
+            price_money = var_data.get("price_money", {})
+            price = price_money.get("amount", 0) / 100
+            currency = price_money.get("currency", "CAD")
+            prices.append(f"{price:.2f} {currency}")
+        simplified_menu[name.title()] = prices
+
+    return simplified_menu
 
 if __name__ == "__main__":
-    items, modifiers = get_catalog_items()
-    print("Sample items:")
-    for name, data in list(items.items())[:5]:
-        print(f"- {name.title()} → ID: {data['id']}")
-    print("\nSample modifiers:")
-    for name, data in list(modifiers.items())[:3]:
-        print(f"- {name.title()} → ID: {data['id']}")
+    menu = get_square_menu_items()
+    print("Sample Menu Items:")
+    for item, prices in list(menu.items())[:5]:
+        print(f"- {item}: {', '.join(prices)}")
