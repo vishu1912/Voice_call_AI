@@ -47,19 +47,24 @@ def get_square_menu_items():
 
     for name, data in items.items():
         variations = data.get("variations", [])
-        prices = []
-        for v in variations:
-            var_data = v.get("item_variation_data", {})
-            price_money = var_data.get("price_money", {})
-            price = price_money.get("amount", 0) / 100
-            currency = price_money.get("currency", "CAD")
-            prices.append(f"{price:.2f} {currency}")
-        simplified_menu[name.title()] = prices
+        if not variations:
+            continue
+
+        # Take the first variation
+        var_data = variations[0].get("item_variation_data", {})
+        price_money = var_data.get("price_money", {})
+        price = price_money.get("amount", 0)
+        variation_id = variations[0].get("id")
+
+        simplified_menu[name.title()] = {
+            "variation_id": variation_id,
+            "price": price
+        }
 
     return simplified_menu
 
 if __name__ == "__main__":
     menu = get_square_menu_items()
     print("Sample Menu Items:")
-    for item, prices in list(menu.items())[:5]:
-        print(f"- {item}: {', '.join(prices)}")
+    for item, details in list(menu.items())[:5]:
+        print(f"- {item}: ${details['price'] / 100:.2f}")
