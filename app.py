@@ -1,3 +1,5 @@
+# app.py (reverted version - no Square, tight prompt control, accurate behavior)
+
 import os
 from dotenv import load_dotenv
 from typing import List, Optional
@@ -81,7 +83,7 @@ def fixed_tools_condition(state: AgentState):
 
     if any(keyword in last_msg for keyword in ["add", "order", "want"]):
         return "add_to_order"
-    if "summary" in last_msg or "what did I order" in last_msg:
+    if "summary" in last_msg or "what did i order" in last_msg:
         return "generate_order_summary"
 
     tool_calls = getattr(state["messages"][-1], "tool_calls", [])
