@@ -4,123 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='pbxlogo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <title>PBX1 Pizza Chatbot</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #fef8ed;
-      font-family: Arial, sans-serif;
-    }
-
-    .chat-container {
-      max-width: 600px;
-      width: 95%;
-      height: 100vh;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      padding: 20px 15px;
-      box-sizing: border-box;
-      background-color: #ffffff;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-    }
-
-    .logo {
-      width: 100px;
-      height: auto;
-      margin: 0 auto 10px;
-      display: block;
-    }
-
-    h2 {
-      text-align: center;
-      margin: 10px 0;
-      font-size: 1.8rem;
-    }
-
-    #chatbox {
-      display: none;
-      flex-grow: 1;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      padding: 10px;
-      background-color: #f9f9f9;
-      margin-bottom: 10px;
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-
-    .user, .bot {
-      margin: 10px 0;
-    }
-
-    .timestamp {
-      font-size: 0.75em;
-      color: #999;
-    }
-
-    .bot b {
-      color: #e77e23;
-    }
-
-    #userInput {
-      width: 100%;
-      height: 50px;
-      padding: 12px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      margin-bottom: 10px;
-      box-sizing: border-box;
-      font-size: 1.1rem;
-    }
-
-    button {
-      width: 100%;
-      height: 50px;
-      border-radius: 5px;
-      background-color: #ffaf40;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-size: 1.1rem;
-      font-weight: bold;
-    }
-
-    @media screen and (max-width: 600px) {
-      .chat-container {
-        height: 100vh;
-        padding: 10px;
-      }
-
-      .logo {
-        width: 100px;
-      }
-
-      h2 {
-        font-size: 1.5rem;
-      }
-
-      #userInput, button {
-        font-size: 1.1rem;
-        height: 50px;
-      }
-
-      #chatbox {
-        font-size: 1rem;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="chat-container">
     <img src="{{ url_for('static', filename='pbxlogo.png') }}" alt="PBX Pizza Logo" class="logo">
     <h2>PBX1 Pizza Assistant</h2>
     <div id="chatbox"></div>
-    <input type="text" id="userInput" placeholder="Ask about the menu or place your order...">
-    <button onclick="sendMessage()">Send</button>
+    <div class="input-row">
+      <input type="text" id="userInput" placeholder="Ask about the menu or place your order...">
+      <button onclick="sendMessage()">Send</button>
+    </div>
   </div>
 
   <script>
@@ -172,7 +67,7 @@
       }
 
       userInput.value = "";
-      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' }); // ⬅️ smooth scroll
+      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
     }
   </script>
 </body>
