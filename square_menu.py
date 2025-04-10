@@ -15,7 +15,7 @@ BASE_URL = "https://connect.squareup.com/v2"
 
 def fetch_square_catalog():
     url = f"{BASE_URL}/catalog/list"
-    params = {"types": "ITEM,MODIFIER_LIST"}
+    params = {"types": "ITEM,MODIFIER_LIST,IMAGE"}
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
     return response.json()
@@ -23,48 +23,32 @@ def fetch_square_catalog():
 def get_catalog_items():
     catalog = fetch_square_catalog()
     items = {}
-    modifiers = {}
-
     for obj in catalog.get("objects", []):
         if obj["type"] == "ITEM":
             name = obj["item_data"]["name"].lower()
+            variation = obj["item_data"]["variations"][0]  # take first variation
+            variation_id = variation["id"]
+            price_data = variation["item_variation_data"].get("price_money", {})
+            price = price_data.get("amount", 0)
+            currency = price_data.get("currency", "CAD")
             items[name] = {
-                "id": obj["id"],
-                "variations": obj["item_data"].get("variations", [])
+                "variation_id": variation_id,
+                "price": price,
+                "currency": currency
             }
-        elif obj["type"] == "MODIFIER_LIST":
-            name = obj["modifier_list_data"]["name"].lower()
-            modifiers[name] = {
-                "id": obj["id"],
-                "modifiers": obj["modifier_list_data"].get("modifiers", [])
-            }
+    return items
 
-    return items, modifiers
-
-def get_square_menu_items():
-    items, _ = get_catalog_items()
-    simplified_menu = {}
-
+def get_square_menu_items(full_data=False):
+    items = get_catalog_items()
+    if full_data:
+        return items
+    simplified = {}
     for name, data in items.items():
-        variations = data.get("variations", [])
-        if not variations:
-            continue
-
-        # Take the first variation
-        var_data = variations[0].get("item_variation_data", {})
-        price_money = var_data.get("price_money", {})
-        price = price_money.get("amount", 0)
-        variation_id = variations[0].get("id")
-
-        simplified_menu[name.title()] = {
-            "variation_id": variation_id,
-            "price": price
-        }
-
-    return simplified_menu
+        simplified[name.title()] = [f"{data['price'] / 100:.2f} {data['currency']}"]
+    return simplified
 
 if __name__ == "__main__":
-    menu = get_square_menu_items()
-    print("Sample Menu Items:")
-    for item, details in list(menu.items())[:5]:
-        print(f"- {item}: ${details['price'] / 100:.2f}")
+    sample = get_square_menu_items()
+    print("Sample menu:")
+    for k, v in list(sample.items())[:5]:
+        print(f"- {k}: {v}")
