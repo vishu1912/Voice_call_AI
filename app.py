@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
 from square_menu import get_square_menu_items
-from square_checkout import create_square_checkout
+from square_checkout import create_square_checkout, is_address_deliverable
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +46,7 @@ class AgentState(TypedDict):
     pizza_size: Optional[str]
     crust_type: Optional[str]
     fulfillment_type: Optional[str]  # pickup or delivery
+    delivery_address: Optional[str]
     payment_link: Optional[str]
 
 # Tool: Add to order
@@ -84,19 +85,25 @@ def finalize_order(state: AgentState) -> AgentState:
         state["summary"] = "🧾 Your order is empty. Please add items."
         return state
 
+    if state.get("fulfillment_type") == "delivery":
+        if not state.get("delivery_address"):
+            state["summary"] = "🚚 Please provide a delivery address."
+            return state
+        if not is_address_deliverable(state["delivery_address"]):
+            state["summary"] = "❌ Sorry, we do not deliver to that address."
+            return state
+
     try:
         checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Click here to pay securely: {checkout_url}"
+        state["summary"] = f"✅ Your order is ready. Click to pay securely: {checkout_url}"
     except Exception as e:
         state["summary"] = f"❌ Could not generate payment link: {e}"
     return state
 
 # Graph nodes
-
 def user_message_node(state: AgentState) -> AgentState:
     return state
-
 
 def gemini_node(state: AgentState) -> AgentState:
     response = gemini_llm.invoke(state["messages"])
@@ -105,7 +112,6 @@ def gemini_node(state: AgentState) -> AgentState:
     return state
 
 # Trigger tool based on keywords or tool call
-
 def fixed_tools_condition(state: AgentState):
     content = state["messages"][-1].content.lower()
     if any(kw in content for kw in ["checkout", "pay", "payment", "finalize order", "card", "credit", "debit"]):
@@ -118,7 +124,6 @@ def fixed_tools_condition(state: AgentState):
     return "default"
 
 # Init state
-
 def init_state() -> AgentState:
     return AgentState(
         messages=[SystemMessage(content=MENU_PROMPT)],
@@ -127,11 +132,11 @@ def init_state() -> AgentState:
         pizza_size=None,
         crust_type=None,
         fulfillment_type=None,
+        delivery_address=None,
         payment_link=None
     )
 
 # Build LangGraph
-
 builder = StateGraph(AgentState)
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
 
@@ -152,7 +157,6 @@ builder.add_edge("tool_node", END)
 pbx_flow = builder.compile()
 
 # Flask routes
-
 @app.route("/")
 def home():
     return render_template("index.html")
