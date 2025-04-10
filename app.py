@@ -1,4 +1,4 @@
-# app.py (UPDATED with Square integration and improved checkout trigger logic)
+# app.py (Updated: Full Square Integration with Delivery Check, Pickup Option, Taxes, and Direct Checkout)
 
 import os
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
 from square_menu import get_square_menu_items
-from square_checkout import create_square_checkout
+from square_checkout import create_square_checkout, is_address_deliverable
 
 # Load env
 load_dotenv()
@@ -29,7 +29,7 @@ Session(app)
 
 # Load prompt
 with open("menu_prompt.txt", "r") as f:
-    MENU_PROMPT = f.read()
+    MENU_PROMPT = f.read() + "\nWe are located in Abbotsford, BC. Would you like delivery or pickup to start?"
 
 # Gemini LLM setup
 gemini_llm = ChatGoogleGenerativeAI(
@@ -48,11 +48,12 @@ class AgentState(TypedDict):
     pizza_size: Optional[str]
     crust_type: Optional[str]
     payment_link: Optional[str]
+    fulfillment_type: Optional[str]  # delivery or pickup
+    address: Optional[str]
 
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
     if item.lower() in [i.lower() for i in SQUARE_MENU.keys()]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
@@ -62,7 +63,6 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -77,16 +77,40 @@ def generate_order_summary(state: AgentState) -> AgentState:
     return state
 
 @tool
+def set_fulfillment_type(type: str, state: AgentState) -> AgentState:
+    if type.lower() in ["delivery", "pickup"]:
+        state["fulfillment_type"] = type.lower()
+        if type.lower() == "pickup":
+            state["summary"] = "👍 Pickup selected. What would you like to order?"
+        else:
+            state["summary"] = "📍 Delivery selected. Please share your address."
+    else:
+        state["summary"] = "❌ Please specify either 'delivery' or 'pickup'."
+    return state
+
+@tool
+def set_delivery_address(address: str, state: AgentState) -> AgentState:
+    if not state.get("fulfillment_type") == "delivery":
+        state["summary"] = "❌ Delivery option was not selected. Please start again."
+        return state
+
+    if not is_address_deliverable(address):
+        state["summary"] = f"🚫 Sorry, we don't deliver to {address}. Please choose pickup."
+    else:
+        state["address"] = address
+        state["summary"] = f"📦 Great! We'll deliver to {address}. What's your order?"
+    return state
+
+@tool
 def finalize_order(state: AgentState) -> AgentState:
-    """Finalize the order and return a Square payment link."""
     if not state["order"]:
         state["summary"] = "You need to add items before checking out."
         return state
 
     try:
-        checkout_url = create_square_checkout(state["order"])
+        checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Pay here: {checkout_url}"
+        state["summary"] = f"✅ Order placed! Pay securely here: {checkout_url}"
     except Exception as e:
         state["summary"] = f"❌ Could not create checkout. {e}"
     return state
@@ -102,26 +126,22 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
-# ✅ Improved trigger logic to avoid off-topic or premature checkout
 def fixed_tools_condition(state: AgentState):
-    last_message = state["messages"][-1]
-    content = last_message.content.lower()
+    content = state["messages"][-1].content.lower()
 
-    # Only trigger finalize_order if payment-related AND order is not empty
-    if (
-        any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit"])
-        and len(state.get("order", [])) > 0
-    ):
+    if any(word in content for word in ["delivery", "pickup"]):
+        return "set_fulfillment_type"
+    elif state.get("fulfillment_type") == "delivery" and any(word in content for word in ["abbotsford", "street", "surrey", "road", "drive", "avenue"]):
+        return "set_delivery_address"
+    elif any(w in content for w in ["checkout", "pay", "payment", "place order", "finalize"]):
         return "finalize_order"
 
-    tool_calls = getattr(last_message, "tool_calls", [])
+    tool_calls = getattr(state["messages"][-1], "tool_calls", [])
     if not tool_calls:
         return "default"
-
     tool_call = tool_calls[0]
     if isinstance(tool_call, dict) and "tool" in tool_call:
         return tool_call["tool"]
-
     return "default"
 
 # Initial state
@@ -132,11 +152,19 @@ def init_state() -> AgentState:
         summary="",
         pizza_size=None,
         crust_type=None,
-        payment_link=None
+        payment_link=None,
+        fulfillment_type=None,
+        address=None
     )
 
 # Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
+tool_node = ToolNode(tools=[
+    add_to_order,
+    generate_order_summary,
+    set_fulfillment_type,
+    set_delivery_address,
+    finalize_order
+])
 
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
@@ -148,6 +176,8 @@ builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "add_to_order": "tool_node",
     "generate_order_summary": "tool_node",
+    "set_fulfillment_type": "tool_node",
+    "set_delivery_address": "tool_node",
     "finalize_order": "tool_node",
     "default": END
 })
