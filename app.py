@@ -79,7 +79,6 @@ def generate_order_summary(state: AgentState) -> AgentState:
 
 # Tool: Finalize order & generate Square link
 @tool
-@tool
 def finalize_order(state: AgentState) -> AgentState:
     """Finalize and generate Square payment link."""
     if not state["order"]:
@@ -115,7 +114,7 @@ def gemini_node(state: AgentState) -> AgentState:
 # Trigger tool based on keywords or tool call
 def fixed_tools_condition(state: AgentState):
     content = state["messages"][-1].content.lower()
-    if any(kw in content for kw in ["checkout", "pay", "payment", "finalize order", "card", "credit", "debit"]):
+    if any(word in content for word in ["pay", "payment", "card", "debit", "credit", "checkout", "finalize", "place order", "complete order"]):
         return "finalize_order"
     tool_calls = getattr(state["messages"][-1], "tool_calls", [])
     if tool_calls:
