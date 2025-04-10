@@ -1,10 +1,13 @@
 # app.py
 
 import os
+import uuid
+import pickle
+import base64
 from dotenv import load_dotenv
 from typing import List
 from typing_extensions import TypedDict
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, session
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -19,6 +22,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Flask app
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
 
 # Load prompt
 with open("menu_prompt.txt", "r") as f:
@@ -92,6 +96,15 @@ def init_state() -> AgentState:
         summary=""
     )
 
+# Helpers for session-state
+def get_session_state():
+    if "state" not in session:
+        session["state"] = base64.b64encode(pickle.dumps(init_state())).decode()
+    return pickle.loads(base64.b64decode(session["state"]))
+
+def set_session_state(state: AgentState):
+    session["state"] = base64.b64encode(pickle.dumps(state)).decode()
+
 # Build graph
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
@@ -110,7 +123,6 @@ builder.add_conditional_edges("llm_node", fixed_tools_condition, {
 builder.add_edge("tool_node", END)
 
 pbx_flow = builder.compile()
-session_state = init_state()
 
 # Routes
 @app.route("/")
@@ -120,6 +132,8 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-    session_state["messages"].append(HumanMessage(content=user_input))
-    updated_state = pbx_flow.invoke(session_state)
+    state = get_session_state()
+    state["messages"].append(HumanMessage(content=user_input))
+    updated_state = pbx_flow.invoke(state)
+    set_session_state(updated_state)
     return jsonify({"response": updated_state["summary"]})
