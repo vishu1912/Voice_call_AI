@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
 from square_menu import get_square_menu_items
-from square_checkout import create_square_checkout, is_address_deliverable
+from square_checkout import create_square_checkout
 
 # Load environment variables
 load_dotenv()
@@ -46,7 +46,6 @@ class AgentState(TypedDict):
     pizza_size: Optional[str]
     crust_type: Optional[str]
     fulfillment_type: Optional[str]  # pickup or delivery
-    delivery_address: Optional[str]
     payment_link: Optional[str]
 
 # Tool: Add to order
@@ -88,15 +87,12 @@ def finalize_order(state: AgentState) -> AgentState:
     try:
         checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is confirmed. <br><br><b>Click to pay:</b> <a href='{checkout_url}' target='_blank'>{checkout_url}</a><br><br>Once paid, we’ll start preparing your order!"
-    except Exception as e:
-        state["summary"] = f"❌ Error generating payment link: {e}"
-    return state
-
-    try:
-        checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
-        state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Click to pay securely: {checkout_url}"
+        state["summary"] = (
+            f"✅ Your order is confirmed. <br><br>"
+            f"<b>Click to pay securely:</b><br>"
+            f"<a href='{checkout_url}' target='_blank' rel='noopener noreferrer'>{checkout_url}</a><br><br>"
+            f"Once payment is complete, we’ll start preparing your order!"
+        )
     except Exception as e:
         state["summary"] = f"❌ Could not generate payment link: {e}"
     return state
@@ -113,14 +109,20 @@ def gemini_node(state: AgentState) -> AgentState:
 
 # Trigger tool based on keywords or tool call
 def fixed_tools_condition(state: AgentState):
-    content = state["messages"][-1].content.lower()
-    if any(word in content for word in ["pay", "payment", "card", "debit", "credit", "checkout", "finalize", "place order", "complete order"]):
+    last_msg = state["messages"][-1].content.lower()
+
+    if any(keyword in last_msg for keyword in [
+        "pay", "payment", "checkout", "finalize", "order now",
+        "place order", "complete order", "card", "debit", "credit"
+    ]):
         return "finalize_order"
+
     tool_calls = getattr(state["messages"][-1], "tool_calls", [])
     if tool_calls:
         tool_call = tool_calls[0]
         if isinstance(tool_call, dict) and "tool" in tool_call:
             return tool_call["tool"]
+
     return "default"
 
 # Init state
@@ -132,7 +134,6 @@ def init_state() -> AgentState:
         pizza_size=None,
         crust_type=None,
         fulfillment_type=None,
-        delivery_address=None,
         payment_link=None
     )
 
