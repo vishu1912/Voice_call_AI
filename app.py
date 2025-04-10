@@ -1,13 +1,11 @@
 # app.py
 
 import os
-import uuid
-import pickle
-import base64
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
 from typing_extensions import TypedDict
 from flask import Flask, request, render_template, jsonify, session
+from flask_session import Session
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -22,7 +20,9 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Flask app
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
 
 # Load prompt
 with open("menu_prompt.txt", "r") as f:
@@ -39,6 +39,8 @@ class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
+    pizza_size: Optional[str]
+    crust_type: Optional[str]
 
 # Tools
 @tool
@@ -62,6 +64,10 @@ def generate_order_summary(state: AgentState) -> AgentState:
         state["summary"] = "🧾 Your order is currently empty."
     else:
         lines = ["\n🧾 Your Order Summary:"]
+        if state.get("pizza_size"):
+            lines.append(f"🍕 Pizza Size: {state['pizza_size']}")
+        if state.get("crust_type"):
+            lines.append(f"🍞 Crust: {state['crust_type']}")
         for item in state["order"]:
             lines.append(f"- {item}")
         state["summary"] = "\n".join(lines)
@@ -93,17 +99,10 @@ def init_state() -> AgentState:
     return AgentState(
         messages=[SystemMessage(content=MENU_PROMPT)],
         order=[],
-        summary=""
+        summary="",
+        pizza_size=None,
+        crust_type=None
     )
-
-# Helpers for session-state
-def get_session_state():
-    if "state" not in session:
-        session["state"] = base64.b64encode(pickle.dumps(init_state())).decode()
-    return pickle.loads(base64.b64decode(session["state"]))
-
-def set_session_state(state: AgentState):
-    session["state"] = base64.b64encode(pickle.dumps(state)).decode()
 
 # Build graph
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
@@ -132,8 +131,14 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-    state = get_session_state()
-    state["messages"].append(HumanMessage(content=user_input))
-    updated_state = pbx_flow.invoke(state)
-    set_session_state(updated_state)
+
+    if "state" not in session:
+        session["state"] = init_state()
+
+    state_dict = session["state"]
+    state_dict["messages"].append(HumanMessage(content=user_input))
+
+    updated_state = pbx_flow.invoke(state_dict)
+    session["state"] = updated_state
+
     return jsonify({"response": updated_state["summary"]})
