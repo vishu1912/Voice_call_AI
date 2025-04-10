@@ -72,7 +72,7 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    response = llm.invoke(state["messages"])
+    response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
 
     # Force stay-in-context guardrail
