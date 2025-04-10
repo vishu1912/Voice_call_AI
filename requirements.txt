@@ -7,3 +7,4 @@ langchain
 langgraph
 google-generativeai
 langchain-google-genai
+squareup
