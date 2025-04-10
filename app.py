@@ -96,6 +96,7 @@ def finalize_order(state: AgentState) -> AgentState:
     except Exception as e:
         state["summary"] = f"❌ Could not generate payment link: {e}"
     return state
+    print("Checkout URL:", checkout_url)  # ← add this line
 
 # Graph nodes
 def user_message_node(state: AgentState) -> AgentState:
