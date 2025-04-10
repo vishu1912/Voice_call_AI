@@ -1,3 +1,5 @@
+# square_checkout.py
+
 import os
 from square.client import Client
 from dotenv import load_dotenv
@@ -53,11 +55,10 @@ def create_square_checkout(order_items: list[str], square_menu: dict) -> str:
     else:
         raise Exception(response.errors)
 
+# ✅ Delivery zone validator
 
-# ✅ Add this function for delivery validation
 def is_address_deliverable(address: str) -> bool:
     """Fake delivery zone validator using a basic postal code match (you can customize this)."""
-    # Add your deliverable postal codes here (get from Square if needed)
     valid_postal_prefixes = ["V2S", "V2T", "V3G", "V4X"]
 
     for prefix in valid_postal_prefixes:
