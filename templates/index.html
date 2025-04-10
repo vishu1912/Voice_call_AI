@@ -51,12 +51,14 @@
         });
 
         const data = await response.json();
+
         let parsedResponse = data.response
           .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
           .replace(/\n/g, "<br>");
 
+        // ✅ Convert Square links to clickable anchor tags
         parsedResponse = parsedResponse.replace(
-          /(https:\/\/(?:checkout|square)\.square\.site\/[^\s<]+)/g,
+          /(https:\/\/(?:checkout|square)\.site\/[^\s<]+)/g,
           `<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>`
         );
 
@@ -64,13 +66,6 @@
           <div class='bot'><b>Pbxguy:</b> ${parsedResponse}
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
-
-        // Auto-open the payment link if found
-        const match = parsedResponse.match(/href="(https:\/\/(?:checkout|square)\.square\.site\/[^\s"]+)/);
-        if (match) {
-          window.open(match[1], "_blank");
-        }
-
       } catch (err) {
         chatbox.innerHTML += `
           <div class='bot'><b>Pbxguy:</b> Sorry! Something went wrong.
