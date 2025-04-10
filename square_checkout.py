@@ -1,37 +1,49 @@
 # square_checkout.py
-import os
-import uuid
-from square.client import Client
 
-client = Client(
+import os
+from square.client import Client
+from dotenv import load_dotenv
+import uuid
+
+load_dotenv()
+
+# Initialize Square client
+square_client = Client(
     access_token=os.getenv("SQUARE_ACCESS_TOKEN"),
-    environment="sandbox"  # Change to "production" when ready
+    environment="production"  # or "sandbox"
 )
 
-def create_checkout(order_items, customer_email):
+location_id = os.getenv("SQUARE_LOCATION_ID")
+
+def create_square_checkout(order_items):
+    """Create a Square checkout link based on the order_items list."""
+
+    # Prepare line items for the order
+    line_items = []
+    for item in order_items:
+        line_items.append({
+            "name": item,
+            "quantity": "1",
+            "base_price_money": {
+                "amount": 1000,  # Set a placeholder price like $10.00 → 1000 cents
+                "currency": "CAD"
+            }
+        })
+
     body = {
         "idempotency_key": str(uuid.uuid4()),
         "order": {
-            "location_id": os.getenv("SQUARE_LOCATION_ID"),
-            "line_items": [
-                {
-                    "name": item["name"],
-                    "quantity": str(item["quantity"]),
-                    "base_price_money": {
-                        "amount": int(float(item["price"]) * 100),
-                        "currency": "CAD"
-                    }
-                }
-                for item in order_items
-            ],
+            "location_id": location_id,
+            "line_items": line_items
         },
-        "ask_for_shipping_address": True,
-        "redirect_url": "https://yourdomain.com/thank-you"  # Replace this with your actual domain
+        "ask_for_shipping_address": False,
+        "redirect_url": "https://pbx1-chatbot.onrender.com/thanks"
     }
 
-    response = client.checkout.create_checkout(
-        location_id=os.getenv("SQUARE_LOCATION_ID"),
-        body=body
-    )
+    checkout_api = square_client.checkout
+    response = checkout_api.create_checkout(location_id=location_id, body=body)
 
-    return response.body["checkout"]["checkout_page_url"]
+    if response.is_success():
+        return response.body["checkout"]["checkout_page_url"]
+    else:
+        raise Exception(response.errors)
