@@ -87,7 +87,6 @@ builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
 builder.add_node("llm_node", RunnableLambda(gemini_node))
 builder.add_node("tool_node", tool_node)
-builder.add_node("__end__", END)
 
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
