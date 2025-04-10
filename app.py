@@ -79,19 +79,20 @@ def generate_order_summary(state: AgentState) -> AgentState:
 
 # Tool: Finalize order & generate Square link
 @tool
+@tool
 def finalize_order(state: AgentState) -> AgentState:
     """Finalize and generate Square payment link."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is empty. Please add items."
         return state
 
-    if state.get("fulfillment_type") == "delivery":
-        if not state.get("delivery_address"):
-            state["summary"] = "🚚 Please provide a delivery address."
-            return state
-        if not is_address_deliverable(state["delivery_address"]):
-            state["summary"] = "❌ Sorry, we do not deliver to that address."
-            return state
+    try:
+        checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
+        state["payment_link"] = checkout_url
+        state["summary"] = f"✅ Your order is confirmed. <br><br><b>Click to pay:</b> <a href='{checkout_url}' target='_blank'>{checkout_url}</a><br><br>Once paid, we’ll start preparing your order!"
+    except Exception as e:
+        state["summary"] = f"❌ Error generating payment link: {e}"
+    return state
 
     try:
         checkout_url = create_square_checkout(state["order"], SQUARE_MENU)
