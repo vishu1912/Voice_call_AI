@@ -24,7 +24,7 @@ except Exception as e:
     print(f"⚠️ Could not load menu_prompt.txt: {e}")
 
 # Set up Gemini LLM
-llm = ChatGoogleGenerativeAI(model="gemini-pro", api_key=GOOGLE_API_KEY)
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=GOOGLE_API_KEY)
 
 # Define agent state
 class AgentState(TypedDict):
