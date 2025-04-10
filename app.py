@@ -88,4 +88,77 @@ def finalize_order(state: AgentState) -> AgentState:
         state["payment_link"] = checkout_url
         state["summary"] = f"✅ Your order is ready. Pay here: {checkout_url}"
     except Exception as e:
-        state["summary"] = f"❌ Could not
+        state["summary"] = f"❌ Could not create checkout. {e}"
+    return state
+
+# LangGraph nodes
+def user_message_node(state: AgentState) -> AgentState:
+    print(f"User message: {state['messages'][-1].content}")
+    return state
+
+def gemini_node(state: AgentState) -> AgentState:
+    response = gemini_llm.invoke(state["messages"])
+    state["messages"].append(response)
+    state["summary"] = response.content
+    return state
+
+def fixed_tools_condition(state: AgentState):
+    last_message = state["messages"][-1]
+    tool_calls = getattr(last_message, "tool_calls", [])
+    if not tool_calls:
+        return "default"
+    tool_call = tool_calls[0]
+    if isinstance(tool_call, dict) and "tool" in tool_call:
+        return tool_call["tool"]
+    return "default"
+
+# Initial state
+def init_state() -> AgentState:
+    return AgentState(
+        messages=[SystemMessage(content=MENU_PROMPT)],
+        order=[],
+        summary="",
+        pizza_size=None,
+        crust_type=None,
+        payment_link=None
+    )
+
+# Build graph
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
+
+builder = StateGraph(AgentState)
+builder.add_node("user_node", RunnableLambda(user_message_node))
+builder.add_node("llm_node", RunnableLambda(gemini_node))
+builder.add_node("tool_node", tool_node)
+
+builder.set_entry_point("user_node")
+builder.add_edge("user_node", "llm_node")
+builder.add_conditional_edges("llm_node", fixed_tools_condition, {
+    "add_to_order": "tool_node",
+    "generate_order_summary": "tool_node",
+    "finalize_order": "tool_node",
+    "default": END
+})
+builder.add_edge("tool_node", END)
+
+pbx_flow = builder.compile()
+
+# Routes
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_input = request.get_json().get("message")
+
+    if "state" not in session:
+        session["state"] = init_state()
+
+    state_dict = session["state"]
+    state_dict["messages"].append(HumanMessage(content=user_input))
+
+    updated_state = pbx_flow.invoke(state_dict)
+    session["state"] = updated_state
+
+    return jsonify({"response": updated_state["summary"]})
