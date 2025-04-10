@@ -1,4 +1,4 @@
-# app.py (FULLY UPDATED)
+# ✅ app.py (Final version with Square checkout integration)
 
 import os
 from dotenv import load_dotenv
@@ -38,7 +38,7 @@ gemini_llm = ChatGoogleGenerativeAI(
 )
 
 # Fetch Square menu
-SQUARE_MENU = get_square_menu_items()
+SQUARE_MENU = get_square_menu_items(full_data=True)
 
 # Agent State
 class AgentState(TypedDict):
@@ -52,7 +52,7 @@ class AgentState(TypedDict):
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item from the Square menu to the customer's order."""
+    """Add an item to the customer's order."""
     if item.lower() in [i.lower() for i in SQUARE_MENU.keys()]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
@@ -62,7 +62,7 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a visual summary of the user's current order."""
+    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -78,17 +78,17 @@ def generate_order_summary(state: AgentState) -> AgentState:
 
 @tool
 def finalize_order(state: AgentState) -> AgentState:
-    """Create a Square checkout link and return it to the user."""
+    """Finalize the order and return a Square payment link."""
     if not state["order"]:
-        state["summary"] = "You need to add items before checking out."
+        state["summary"] = "🧾 Your order is empty. Please add some items before checkout."
         return state
 
     try:
         checkout_url = create_square_checkout(state["order"])
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Pay here: {checkout_url}"
+        state["summary"] = f"✅ Great! You can complete your order here:\n\n🔗 {checkout_url}\n\nOnce paid, we’ll prepare your order for pickup or delivery. Thanks!"
     except Exception as e:
-        state["summary"] = f"❌ Could not create checkout. {e}"
+        state["summary"] = f"❌ There was an issue creating your checkout link: {e}"
     return state
 
 # LangGraph nodes
@@ -102,7 +102,6 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
-# Route Gemini to the right tool based on user message content
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     content = last_message.content.lower()
