@@ -1,4 +1,4 @@
-# app.py (UPDATED with Square integration)
+# app.py (FINALIZED with Square checkout & redirect handling)
 
 import os
 from dotenv import load_dotenv
@@ -86,7 +86,7 @@ def finalize_order(state: AgentState) -> AgentState:
     try:
         checkout_url = create_square_checkout(state["order"])
         state["payment_link"] = checkout_url
-        state["summary"] = f"✅ Your order is ready. Pay here: {checkout_url}"
+        state["summary"] = f"✅ Your order is ready. Please complete your payment here: {checkout_url}"
     except Exception as e:
         state["summary"] = f"❌ Could not create checkout. {e}"
     return state
@@ -162,3 +162,7 @@ def chat():
     session["state"] = updated_state
 
     return jsonify({"response": updated_state["summary"]})
+
+@app.route("/thanks")
+def thanks():
+    return render_template("thanks.html")
