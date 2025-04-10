@@ -74,20 +74,15 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
-# Custom tools_condition fix
-from langchain_core.agents import ToolInvocation
-
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     tool_calls = getattr(last_message, "tool_calls", [])
     if not tool_calls:
-        return END
+        return "default"
     tool_call = tool_calls[0]
-    if isinstance(tool_call, ToolInvocation):
-        return tool_call.tool
-    elif isinstance(tool_call, dict) and "tool" in tool_call:
+    if isinstance(tool_call, dict) and "tool" in tool_call:
         return tool_call["tool"]
-    return END
+    return "default"
 
 # Initial state
 def init_state() -> AgentState:
