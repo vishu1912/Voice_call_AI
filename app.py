@@ -24,7 +24,7 @@ with open("menu_prompt.txt", "r") as f:
 
 # LangChain LLM setup
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
+    model="gemini-2.0-flash",
     api_key=GOOGLE_API_KEY
 )
 
