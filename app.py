@@ -1,4 +1,4 @@
-# app.py (UPDATED with Square integration and checkout trigger fix)
+# app.py (UPDATED with Square integration and improved checkout trigger logic)
 
 import os
 from dotenv import load_dotenv
@@ -102,12 +102,16 @@ def gemini_node(state: AgentState) -> AgentState:
     state["summary"] = response.content
     return state
 
-# ✅ Updated logic to trigger checkout tool on relevant phrases
+# ✅ Improved trigger logic to avoid off-topic or premature checkout
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     content = last_message.content.lower()
 
-    if any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit"]):
+    # Only trigger finalize_order if payment-related AND order is not empty
+    if (
+        any(kw in content for kw in ["checkout", "pay", "payment", "place order", "finalize", "card", "debit", "credit"])
+        and len(state.get("order", [])) > 0
+    ):
         return "finalize_order"
 
     tool_calls = getattr(last_message, "tool_calls", [])
@@ -117,6 +121,7 @@ def fixed_tools_condition(state: AgentState):
     tool_call = tool_calls[0]
     if isinstance(tool_call, dict) and "tool" in tool_call:
         return tool_call["tool"]
+
     return "default"
 
 # Initial state
