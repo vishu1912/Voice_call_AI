@@ -73,7 +73,18 @@ def user_message_node(state: AgentState) -> AgentState:
 def gemini_node(state: AgentState) -> AgentState:
     response = llm.invoke(state["messages"])
     state["messages"].append(response)
-    state["summary"] = response.content
+
+    # Force stay-in-context guardrail
+    off_topic_triggers = [
+        "history of", "poem", "joke", "ai", "language", "translate", "summarize",
+        "who are you", "what else", "skills", "write a", "generate a", "talk about"
+    ]
+
+    if any(trigger in response.content.lower() for trigger in off_topic_triggers):
+        state["summary"] = "I'm your PBX1 Pizza Assistant 🍕 I can help with your order. What would you like today?"
+    else:
+        state["summary"] = response.content
+
     return state
 
 # Graph
