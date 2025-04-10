@@ -1,11 +1,34 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #fff8ec;
+    display: flex;
+    justify-content: center;
+    padding-top: 50px;
+    margin: 0;
+}
+
 .chat-container {
     background-color: #ffffff;
     width: 400px;
-    margin: auto;
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 0 20px rgba(0,0,0,0.2);
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.logo {
+    width: 100px;
+    height: auto;
+    display: block;
+    margin: 0 auto 10px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    margin: 0;
 }
 
 #chatbox {
@@ -13,9 +36,11 @@
     overflow-y: scroll;
     border: 1px solid #ccc;
     padding: 10px;
-    margin: 15px 0;
     background-color: #f9f9f9;
     text-align: left;
+    border-radius: 6px;
+    display: none;
+    font-size: 1rem;
 }
 
 .user, .bot {
@@ -26,70 +51,64 @@
     color: #e77e23;
 }
 
-#userInput {
-    width: 70%;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
+.timestamp {
+    font-size: 0.75em;
+    color: #999;
 }
 
-button {
-    padding: 10px;
-    border-radius: 5px;
-    background-color: #ffaf40;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
-.logo {
-    width: 100px;
-    height: auto;
-    display: block;
-    margin: 0 auto 10px;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    background: #fff8ec;
+.input-row {
     display: flex;
-    justify-content: center;
-    padding-top: 50px;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
 }
 
-.chat-container {
-    background-color: #ffffff;
-    width: 400px;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.2);
-}
-
-#chatbox {
-    height: 300px;
-    overflow-y: scroll;
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 10px;
-    background-color: #f9f9f9;
-}
-
-#userInput {
-    width: 70%;
+.input-row #userInput {
+    flex: 1;
+    min-width: 0;
     padding: 10px;
     border-radius: 5px;
     border: 1px solid #ccc;
+    font-size: 1rem;
 }
 
-button {
-    padding: 10px;
+.input-row button {
+    padding: 10px 20px;
     border-radius: 5px;
     background-color: #ffaf40;
     color: white;
     border: none;
     cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    flex-shrink: 0;
 }
 
-.user, .bot {
-    margin: 10px 0;
+@media screen and (max-width: 480px) {
+    .chat-container {
+        width: 95%;
+        padding: 15px;
+    }
+
+    #chatbox {
+        height: 250px;
+        font-size: 0.95rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .input-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .input-row #userInput,
+    .input-row button {
+        width: 100%;
+        height: 45px;
+        font-size: 1rem;
+    }
 }
