@@ -123,23 +123,33 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    # Rebuild full context including prompt and user messages
+    # Always include menu prompt as system message
     menu_system_msg = SystemMessage(content=MENU_PROMPT)
-    conversation = [menu_system_msg] + state["messages"][1:]  # Keep original prompt, but skip repeating it
+
+    # Get user + assistant history (if any) after the first system message
+    prior_messages = state["messages"][1:] if len(state["messages"]) > 1 else []
+
+    conversation = [menu_system_msg] + prior_messages
+
+    if not any(isinstance(m, HumanMessage) for m in conversation):
+        # Safety check: make sure at least one user message is in the list
+        state["summary"] = "Please enter your order or a question about the menu."
+        return state
 
     response = gemini_llm.invoke(conversation)
     state["messages"].append(response)
 
-    # Check if the response is off-topic or hallucinating (e.g., no match found)
+    # Guardrail for hallucinations or off-topic replies
     hallucination_flags = [
-        "pickup lines", "history", "joke", "ai", "music", "poem", "translate", "favorite", "skills"
+        "pickup lines", "history", "translate", "joke", "generate", "who are you",
+        "skills", "fun facts", "poem", "movie", "ai", "music"
     ]
-    hallucination_keywords = ["I'm just here", "I'm an AI", "Sorry!", "To give you a better answer"]
+    fallback_triggers = ["I'm just here", "AI model", "language model", "can't help with that"]
 
-    if any(flag in state["messages"][-1].content.lower() for flag in hallucination_flags) or \
-       any(k in response.content for k in hallucination_keywords):
+    if any(flag in response.content.lower() for flag in hallucination_flags) or \
+       any(k in response.content for k in fallback_triggers):
         state["summary"] = (
-            "Hmm, I don't have details about that. For more info, feel free to call us at (672) 966-0101 📞"
+            "Hmm, I couldn’t find that in the menu. For more details, please call the store at (672) 966-0101 📞"
         )
     else:
         state["summary"] = response.content
