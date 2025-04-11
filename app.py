@@ -81,8 +81,8 @@ def send_order_email(summary: str):
 def add_to_order(item: str, state: AgentState) -> AgentState:
     """Add an item to the customer's order."""
     known_items = [
-        "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
-        "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
+        "Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet",
+        "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"
     ]
     if item.lower() in known_items:
         state["order"].append(item)
