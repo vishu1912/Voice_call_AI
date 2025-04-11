@@ -70,24 +70,10 @@ def user_message_node(state: AgentState) -> AgentState:
     print(f"User said: {state['messages'][-1].content}")
     return state
 
-# Gemini response handler with tighter off-topic control
 def gemini_node(state: AgentState) -> AgentState:
-    response = gemini_llm.invoke(state["messages"])
+    response = llm.invoke(state["messages"])
     state["messages"].append(response)
-
-    content = response.content.lower()
-
-    # Still prevent hallucinations on obviously off-topic queries
-    if any(
-        phrase in content for phrase in [
-            "history of", "climate", "nasa", "who invented", "gpt", "translate this",
-            "python code", "write a poem", "make me a", "romantic", "horror", "generate"
-        ]
-    ):
-        state["summary"] = "I'm your PBX1 Pizza Assistant 🍕 Let me help with your order. Would you like pizza, wings, or something else?"
-    else:
-        state["summary"] = response.content
-
+    state["summary"] = response.content
     return state
 
 # Graph
@@ -104,20 +90,18 @@ builder.add_edge("user_node", "llm_node")
 # Custom tool router
 def route_tools(state: AgentState) -> str:
     msg = state["messages"][-1].content.lower()
-
-    if any(keyword in msg for keyword in [
-        "add", "order", "get", "want", "pizza", "wings", "lasagna", "cheesy bread", "garlic", "salad", "rockstar", "pop", "drink"
-    ]):
+    if "add" in msg or "order" in msg:
         return "add_to_order"
-
-    if "summary" in msg or "what did i order" in msg or "show order" in msg:
+    elif "summary" in msg or "what's in" in msg:
         return "generate_order_summary"
-
-    if any(keyword in msg for keyword in ["joke", "ai", "who are you", "what else", "more", "funny", "history", "help me"]):
-        # Redirect back with a focused message instead of hallucinating
-        state["summary"] = "I'm just your friendly PBX1 Pizza assistant 🍕 Let me help with your order — what would you like today?"
-        return "default"
-
     return "default"
+
+builder.add_conditional_edges("llm_node", route_tools, {
+    "add_to_order": "tool_node",
+    "generate_order_summary": "tool_node",
+    "default": END
+})
+
+builder.add_edge("tool_node", END)
 
 pbx_flow = builder.compile()
