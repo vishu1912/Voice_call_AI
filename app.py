@@ -1,12 +1,13 @@
 import os
+import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import List
 from typing_extensions import TypedDict
-from flask import Flask, request, render_template, jsonify, session
+from flask import Flask, request, render_template, jsonify
 from flask_session import Session
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -41,9 +42,7 @@ class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
-    pizza_size: Optional[str]
-    crust_type: Optional[str]
-
+    
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
@@ -80,12 +79,10 @@ def send_order_email(summary: str):
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add a known menu item to the customer's current order."""
+    """Add an item to the customer's order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
-        "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna",
-        "family pack", "personal combo", "pbx1 combo", "pizza & wings combo",
-        "lasagna special deal", "chicken wings special", "any two pizza deal"
+        "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
     ]
     if item.lower() in known_items:
         state["order"].append(item)
@@ -96,22 +93,28 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate order summary of the customer order from add_to_order tool"""
+    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
+    else:
+        lines = ["\n🧾 Your Order Summary:"]
+        for item in state["order"]:
+            lines.append(f"- {item}")
+        state["summary"] = "\n".join(lines)
+    return state
+
+@tool
+def send_order_email_tool(state: AgentState) -> AgentState:
+    """Send the current order summary to the store email."""
+    if not state.get("summary"):
+        state["summary"] = "❌ No summary available to email."
         return state
 
-    lines = ["🧾 Your Order Summary:"]
-    if state.get("pizza_size"):
-        lines.append(f"🍕 Pizza Size: {state['pizza_size']}")
-    if state.get("crust_type"):
-        lines.append(f"🍞 Crust: {state['crust_type']}")
-    for item in state["order"]:
-        lines.append(f"- {item}")
-
-    full_summary = "\n".join(lines)
-    state["summary"] = full_summary
-    send_order_email(full_summary)
+    try:
+        send_order_email(state["summary"])
+        state["summary"] = "📧 Your order has been emailed to the store successfully!"
+    except Exception as e:
+        state["summary"] = f"❌ Failed to send order email: {str(e)}"
     return state
 
 # LangGraph nodes
@@ -120,38 +123,19 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    menu_system_msg = SystemMessage(content=MENU_PROMPT)
-    prior_messages = state["messages"][1:] if len(state["messages"]) > 1 else []
-    conversation = [menu_system_msg] + prior_messages
-
-    if not any(isinstance(m, HumanMessage) for m in conversation):
-        state["summary"] = "Please enter your order or a question about the menu."
-        return state
-
-    response = gemini_llm.invoke(conversation)
+    response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
-
-    hallucination_flags = [
-        "pickup lines", "history", "translate", "joke", "generate", "who are you",
-        "skills", "fun facts", "poem", "movie", "ai", "music"
-    ]
-
-    if any(flag in response.content.lower() for flag in hallucination_flags):
-        state["summary"] = (
-            "Hmm, I couldn’t find that in the menu. For more details, please call the store at (672) 966-0101 📞"
-        )
-    else:
-        state["summary"] = response.content
-
+    state["summary"] = response.content
     return state
 
 def fixed_tools_condition(state: AgentState):
-    last_msg = state["messages"][-1].content.lower()
-    if any(word in last_msg for word in [
-        "add", "order", "get", "want", "pizza", "pop", "wings", "combo", "family pack"]):
-        return "add_to_order"
-    if "summary" in last_msg or "what did i order" in last_msg or "menu" in last_msg:
-        return "generate_order_summary"
+    last_message = state["messages"][-1]
+    tool_calls = getattr(last_message, "tool_calls", [])
+    if not tool_calls:
+        return "default"
+    tool_call = tool_calls[0]
+    if isinstance(tool_call, dict) and "tool" in tool_call:
+        return tool_call["tool"]
     return "default"
 
 # Initial state
@@ -159,9 +143,7 @@ def init_state() -> AgentState:
     return AgentState(
         messages=[SystemMessage(content=MENU_PROMPT)],
         order=[],
-        summary="",
-        pizza_size=None,
-        crust_type=None
+        summary=""
     )
 
 # Build graph
@@ -182,6 +164,7 @@ builder.add_conditional_edges("llm_node", fixed_tools_condition, {
 builder.add_edge("tool_node", END)
 
 pbx_flow = builder.compile()
+session_state = init_state()
 
 # Routes
 @app.route("/")
@@ -191,14 +174,6 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-
-    if "state" not in session:
-        session["state"] = init_state()
-
-    state_dict = session["state"]
-    state_dict["messages"].append(HumanMessage(content=user_input))
-
-    updated_state = pbx_flow.invoke(state_dict)
-    session["state"] = updated_state
-
+    session_state["messages"].append(HumanMessage(content=user_input))
+    updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
