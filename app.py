@@ -139,17 +139,16 @@ def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     tool_calls = getattr(last_message, "tool_calls", [])
 
-    # ✅ Use Gemini's tool call if available
     if tool_calls and isinstance(tool_calls[0], dict) and "tool" in tool_calls[0]:
         return tool_calls[0]["tool"]
 
-    # ✅ Fallback keyword match to manually trigger email tool
     user_text = last_message.content.lower()
     if any(keyword in user_text for keyword in [
         "send", "email", "confirm", "place my order",
         "done", "that's all", "send my order", "done, please send", 
         "send it now", "email my order", "confirmation", "confirm and email"
     ]):
+        # 🔁 Directly trigger the send_order_email_tool node
         return "send_order_email_tool"
 
     return "default"
