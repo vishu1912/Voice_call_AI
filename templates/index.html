@@ -56,12 +56,12 @@
           .replace(/\n/g, "<br>");
 
         chatbox.innerHTML += `
-          <div class='bot'><b>Pbxguy:</b> ${parsedResponse}
+          <div class='bot'><b>Agent:</b> ${parsedResponse}
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
       } catch (err) {
         chatbox.innerHTML += `
-          <div class='bot'><b>Pbxguy:</b> Sorry! Something went wrong.
+          <div class='bot'><b>Agent:</b> Sorry! Something went wrong.
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
       }
