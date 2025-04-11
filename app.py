@@ -71,18 +71,21 @@ def generate_order_summary(state: AgentState) -> AgentState:
 def user_message_node(state: AgentState) -> AgentState:
     return state
 
+# Gemini response handler with tighter off-topic control
 def gemini_node(state: AgentState) -> AgentState:
     response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
 
-    # Force stay-in-context guardrail
-    off_topic_triggers = [
-        "history of", "poem", "joke", "ai", "language", "translate", "summarize",
-        "who are you", "what else", "skills", "write a", "generate a", "talk about"
-    ]
+    content = response.content.lower()
 
-    if any(trigger in response.content.lower() for trigger in off_topic_triggers):
-        state["summary"] = "I'm your PBX1 Pizza Assistant 🍕 I can help with your order. What would you like today?"
+    # Still prevent hallucinations on obviously off-topic queries
+    if any(
+        phrase in content for phrase in [
+            "history of", "climate", "nasa", "who invented", "gpt", "translate this",
+            "python code", "write a poem", "make me a", "romantic", "horror", "generate"
+        ]
+    ):
+        state["summary"] = "I'm your PBX1 Pizza Assistant 🍕 Let me help with your order. Would you like pizza, wings, or something else?"
     else:
         state["summary"] = response.content
 
