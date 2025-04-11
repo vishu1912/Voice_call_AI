@@ -136,8 +136,7 @@ def gemini_node(state: AgentState) -> AgentState:
         "skills", "fun facts", "poem", "movie", "ai", "music"
     ]
 
-    if len(response.content.strip()) < 10 and \
-       any(flag in response.content.lower() for flag in hallucination_flags):
+    if any(flag in response.content.lower() for flag in hallucination_flags):
         state["summary"] = (
             "Hmm, I couldn’t find that in the menu. For more details, please call the store at (672) 966-0101 📞"
         )
