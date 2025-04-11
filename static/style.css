@@ -49,7 +49,7 @@ h2 {
 }
 
 .bot b {
-    color: #ed8f13; /* Soft gold accent like the Bellini text */
+    color: #fa9025; /* Soft gold accent like the Bellini text */
 }
 
 .timestamp {
@@ -79,7 +79,7 @@ h2 {
 .input-row button {
     padding: 10px 20px;
     border-radius: 5px;
-    background-color: #d69813; /* Soft gold button */
+    background-color: #fa9025; /* Soft gold button */
     color: #1a1a1a;
     border: none;
     cursor: pointer;
