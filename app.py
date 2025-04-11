@@ -46,6 +46,39 @@ class AgentState(TypedDict):
     pizza_size: str
     crust_type: str
 
+def send_order_email(summary: str):
+    sender = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASS")
+    recipient = os.getenv("TO_EMAIL")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"New PBX1 Order - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    msg["From"] = sender
+    msg["To"] = recipient
+
+   html_summary = summary.replace('\n', '<br>')
+
+   html = f"""
+   <html>
+    <body>
+      <h2>🧾 PBX1 Pizza Order Summary</h2>
+       <p>{html_summary}</p>
+       <br>
+      <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
+    </body>
+  </html>
+  """
+    part = MIMEText(html, "html")
+    msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, password)
+            server.sendmail(sender, recipient, msg.as_string())
+            print("✅ Order email sent.")
+    except Exception as e:
+        print("❌ Failed to send email:", e)
+
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
@@ -63,43 +96,24 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Summarize current items in the user's order."""
+    """Generate a summary of the current order and send it via email."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
-    else:
-        lines = ["\n🧾 Your Order Summary:"]
-        if state.get("pizza_size"):
-            lines.append(f"🍕 Pizza Size: {state['pizza_size']}")
-        if state.get("crust_type"):
-            lines.append(f"🍞 Crust: {state['crust_type']}")
-        for item in state["order"]:
-            lines.append(f"- {item}")
-        state["summary"] = "\n".join(lines)
-    return state
-
-@tool
-def finalize_order(state: AgentState) -> AgentState:
-    """Finalize the order and send it via email."""
-    if not state["order"]:
-        state["summary"] = "❌ Your order is empty. Please add items first."
         return state
 
-    # Build the summary again
-    lines = ["🧾 New PBX1 Order Received:"]
+    lines = ["🧾 Your Order Summary:"]
     if state.get("pizza_size"):
         lines.append(f"🍕 Pizza Size: {state['pizza_size']}")
     if state.get("crust_type"):
         lines.append(f"🍞 Crust: {state['crust_type']}")
     for item in state["order"]:
         lines.append(f"- {item}")
-    full_summary = "\n".join(lines)
 
-    # Send the email
-    if os.getenv("EMAIL_USER") and os.getenv("EMAIL_PASS") and os.getenv("TO_EMAIL"):
-        send_order_email(full_summary)
-        state["summary"] = "✅ Your order has been placed and emailed to the restaurant!"
-    else:
-        state["summary"] = "⚠️ Could not send the order email — email credentials are missing."
+    full_summary = "\n".join(lines)
+    state["summary"] = full_summary
+
+    # Send the order email
+    send_order_email(full_summary)
 
     return state
 
@@ -115,15 +129,13 @@ def gemini_node(state: AgentState) -> AgentState:
     return state
 
 def fixed_tools_condition(state: AgentState):
-    last_message = state["messages"][-1].content.lower()
-
-    if any(word in last_message for word in ["add", "order", "get", "want", "pizza", "pop", "wings"]):
-        return "add_to_order"
-    if "summary" in last_message or "what did i order" in last_message:
-        return "generate_order_summary"
-    if any(word in last_message for word in ["finalize", "place order", "done", "checkout", "confirm"]):
-        return "finalize_order"
-
+    last_message = state["messages"][-1]
+    tool_calls = getattr(last_message, "tool_calls", [])
+    if not tool_calls:
+        return "default"
+    tool_call = tool_calls[0]
+    if isinstance(tool_call, dict) and "tool" in tool_call:
+        return tool_call["tool"]
     return "default"
 
 # Initial state
@@ -136,40 +148,8 @@ def init_state() -> AgentState:
         crust_type=None
     )
     
-def send_order_email(summary: str):
-    sender = os.getenv("EMAIL_USER")
-    password = os.getenv("EMAIL_PASS")
-    recipient = os.getenv("TO_EMAIL")
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"New PBX1 Order - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    msg["From"] = sender
-    msg["To"] = recipient
-
-    html_summary = summary.replace('\n', '<br>')
-    html = f"""
-<html>
- <body>
-    <h2>🧾 PBX1 Pizza Order Summary</h2>
-    <p>{html_summary}</p>
-    <br>
-    <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
-  </body>
-</html>
-"""
-    part = MIMEText(html, "html")
-    msg.attach(part)
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender, password)
-            server.sendmail(sender, recipient, msg.as_string())
-            print("✅ Order email sent.")
-    except Exception as e:
-        print("❌ Failed to send email:", e)
-
 # Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary, finalize_order])
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
