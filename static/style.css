@@ -36,14 +36,12 @@ h2 {
 #chatbox {
     height: 300px;
     overflow-y: scroll;
-    border: 1px solid #444;
     padding: 10px;
     background-color: #fae8b6; /* Chat background */
     text-align: left;
     border-radius: 6px;
     display: none;
     font-size: 1rem;
-    color: #e6e6e6;
 }
 
 .user, .bot {
