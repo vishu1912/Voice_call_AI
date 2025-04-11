@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
     font-family: Arial, sans-serif;
     background: #0d0000;
@@ -90,6 +94,10 @@ h2 {
 }
 
 @media screen and (max-width: 480px) {
+    * {
+        box-sizing: border-box;
+    }
+
     .logo {
         max-width: 100%;
     }
@@ -101,7 +109,7 @@ h2 {
 
     #chatbox {
         height: 250px;
-        width: 75px;
+        width: 100%;
         font-size: 0.95rem;
     }
 
@@ -112,12 +120,12 @@ h2 {
     .input-row {
         flex-direction: column;
         gap: 8px;
+        width: 100%;
     }
 
     .input-row #userInput,
     .input-row button {
         width: 100%;
-        height: 45px;
         font-size: 1rem;
     }
 }
