@@ -57,13 +57,12 @@ def send_order_email(summary: str):
     msg["To"] = recipient
 
    html_summary = summary.replace('\n', '<br>')
-
    html = f"""
    <html>
     <body>
       <h2>🧾 PBX1 Pizza Order Summary</h2>
-       <p>{html_summary}</p>
-       <br>
+      <p>{html_summary}</p>
+      <br>
       <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
     </body>
   </html>
