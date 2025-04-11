@@ -80,7 +80,6 @@ def send_order_email(summary: str):
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
         "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna",
@@ -96,7 +95,6 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order and send it via email."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
         return state
@@ -111,10 +109,7 @@ def generate_order_summary(state: AgentState) -> AgentState:
 
     full_summary = "\n".join(lines)
     state["summary"] = full_summary
-
-    # Send the order email
     send_order_email(full_summary)
-
     return state
 
 # LangGraph nodes
@@ -123,31 +118,24 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    # Always include menu prompt as system message
     menu_system_msg = SystemMessage(content=MENU_PROMPT)
-
-    # Get user + assistant history (if any) after the first system message
     prior_messages = state["messages"][1:] if len(state["messages"]) > 1 else []
-
     conversation = [menu_system_msg] + prior_messages
 
     if not any(isinstance(m, HumanMessage) for m in conversation):
-        # Safety check: make sure at least one user message is in the list
         state["summary"] = "Please enter your order or a question about the menu."
         return state
 
     response = gemini_llm.invoke(conversation)
     state["messages"].append(response)
 
-    # Guardrail for hallucinations or off-topic replies
     hallucination_flags = [
         "pickup lines", "history", "translate", "joke", "generate", "who are you",
         "skills", "fun facts", "poem", "movie", "ai", "music"
     ]
-    fallback_triggers = ["I'm just here", "AI model", "language model", "can't help with that"]
 
-    if any(flag in response.content.lower() for flag in hallucination_flags) or \
-       any(k in response.content for k in fallback_triggers):
+    if len(response.content.strip()) < 10 or \
+       any(flag in response.content.lower() for flag in hallucination_flags):
         state["summary"] = (
             "Hmm, I couldn’t find that in the menu. For more details, please call the store at (672) 966-0101 📞"
         )
@@ -158,9 +146,10 @@ def gemini_node(state: AgentState) -> AgentState:
 
 def fixed_tools_condition(state: AgentState):
     last_msg = state["messages"][-1].content.lower()
-    if any(word in last_msg for word in ["add", "order", "get", "want", "pizza", "pop", "wings", "combo", "family pack"]):
+    if any(word in last_msg for word in [
+        "add", "order", "get", "want", "pizza", "pop", "wings", "combo", "family pack"]):
         return "add_to_order"
-    if "summary" in last_msg or "what did i order" in last_msg:
+    if "summary" in last_msg or "what did i order" in last_msg or "menu" in last_msg:
         return "generate_order_summary"
     return "default"
 
