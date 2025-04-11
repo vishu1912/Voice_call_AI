@@ -172,6 +172,7 @@ builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "add_to_order": "tool_node",
     "generate_order_summary": "tool_node",
+    "send_order_email_tool": "tool_node",
     "default": END
 })
 builder.add_edge("tool_node", END)
