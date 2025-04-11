@@ -38,7 +38,7 @@ h2 {
     overflow-y: scroll;
     border: 1px solid #444;
     padding: 10px;
-    background-color: #2a2a2a; /* Chat background */
+    background-color: #fae8b6; /* Chat background */
     text-align: left;
     border-radius: 6px;
     display: none;
@@ -51,12 +51,12 @@ h2 {
 }
 
 .bot b {
-    color: #d6a94a; /* Soft gold accent like the Bellini text */
+    color: #ed8f13; /* Soft gold accent like the Bellini text */
 }
 
 .timestamp {
     font-size: 0.75em;
-    color: #aaa;
+    color: #2e2d2d;
 }
 
 .input-row {
