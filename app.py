@@ -147,7 +147,7 @@ def init_state() -> AgentState:
     )
 
 # Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary,send_order_email_tool])
 
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
