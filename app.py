@@ -45,8 +45,8 @@ class AgentState(TypedDict):
     
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
-    password = os.getenv("EMAIL_PASSWORD")
-    recipient = os.getenv("EMAIL_TO")
+    password = os.getenv("EMAIL_PASS")
+    recipient = os.getenv("TO_EMAIL")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"New PBX1 Order - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
@@ -106,7 +106,6 @@ def generate_order_summary(state: AgentState) -> AgentState:
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
     """Send the current order summary to the store email."""
-    print("🔔 Email tool called")
     if not state.get("summary"):
         state["summary"] = "❌ No summary available to email."
         return state
@@ -114,11 +113,8 @@ def send_order_email_tool(state: AgentState) -> AgentState:
     try:
         send_order_email(state["summary"])
         state["summary"] = "📧 Your order has been emailed to the store successfully!"
-        print("✅ Email tool completed")
     except Exception as e:
         state["summary"] = f"❌ Failed to send order email: {str(e)}"
-        print("❌ Email tool failed:", e)
-
     return state
 
 # LangGraph nodes
@@ -127,10 +123,7 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    response = gemini_llm.invoke(
-        state["messages"],
-        tools=[add_to_order, generate_order_summary, send_order_email_tool]
-    )
+    response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
     state["summary"] = response.content
     return state
@@ -138,19 +131,11 @@ def gemini_node(state: AgentState) -> AgentState:
 def fixed_tools_condition(state: AgentState):
     last_message = state["messages"][-1]
     tool_calls = getattr(last_message, "tool_calls", [])
-
-    if tool_calls and isinstance(tool_calls[0], dict) and "tool" in tool_calls[0]:
-        return tool_calls[0]["tool"]
-
-    user_text = last_message.content.lower()
-    if any(keyword in user_text for keyword in [
-        "send", "email", "confirm", "place my order",
-        "done", "that's all", "send my order", "done, please send", 
-        "send it now", "email my order", "confirmation", "confirm and email"
-    ]):
-        # 🔁 Directly trigger the send_order_email_tool node
-        return "send_order_email_tool"
-
+    if not tool_calls:
+        return "default"
+    tool_call = tool_calls[0]
+    if isinstance(tool_call, dict) and "tool" in tool_call:
+        return tool_call["tool"]
     return "default"
 
 # Initial state
@@ -174,7 +159,6 @@ builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "add_to_order": "tool_node",
     "generate_order_summary": "tool_node",
-    "send_order_email_tool": "tool_node",
     "default": END
 })
 builder.add_edge("tool_node", END)
@@ -189,11 +173,7 @@ def home():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_input = request.get_json().get("message", "").strip()
-    
-    if not user_input:
-        return jsonify({"response": "❌ Please enter a message."})
-
+    user_input = request.get_json().get("message")
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
