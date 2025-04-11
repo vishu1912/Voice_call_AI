@@ -80,6 +80,7 @@ def send_order_email(summary: str):
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
+    """Add a known menu item to the customer's current order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
         "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna",
@@ -95,6 +96,7 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
+    """Generate order summary of the customer order from add_to_order tool"""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
         return state
