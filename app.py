@@ -45,8 +45,8 @@ class AgentState(TypedDict):
     
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
-    password = os.getenv("EMAIL_PASS")
-    recipient = os.getenv("TO_EMAIL")
+    password = os.getenv("EMAIL_PASSWORD")
+    recipient = os.getenv("EMAIL_TO")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"New PBX1 Order - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
