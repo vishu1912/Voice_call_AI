@@ -17,63 +17,58 @@
       <button onclick="sendMessage()">Send</button>
     </div>
   </div>
-<script>
-  document.getElementById("userInput").addEventListener("keyup", function (event) {
-    if (event.key === "Enter") {
-      sendMessage();
-    }
-  });
 
-  async function sendMessage() {
-    const userInput = document.getElementById("userInput");
-    const chatbox = document.getElementById("chatbox");
-    const message = userInput.value.trim();
+  <script>
+    document.getElementById("userInput").addEventListener("keyup", function (event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
 
-    if (!message) return;
+    async function sendMessage() {
+      const userInput = document.getElementById("userInput");
+      const chatbox = document.getElementById("chatbox");
+      const message = userInput.value.trim();
 
-    chatbox.style.display = "block";
+      if (!message) return;
 
-    const now = new Date();
-    const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const datestamp = now.toLocaleDateString();
+      chatbox.style.display = "block";
 
-    chatbox.innerHTML += `
-      <div class='user'><b>You:</b> ${message}
-        <div class="timestamp">${datestamp} @ ${timestamp}</div>
-      </div>`;
-
-    try {
-      const response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
-      });
-
-      const data = await response.json();
-
-      // ✅ Detect Square Payment Link and convert to real hyperlink
-      let parsedResponse = data.response
-        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
-        .replace(/\n/g, "<br>")
-        .replace(
-          /(https:\/\/(?:checkout|square)\.square\.site\/[^\s<]+)/g,
-          `<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>`
-        );
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const datestamp = now.toLocaleDateString();
 
       chatbox.innerHTML += `
-        <div class='bot'><b>Pbxguy:</b> ${parsedResponse}
+        <div class='user'><b>You:</b> ${message}
           <div class="timestamp">${datestamp} @ ${timestamp}</div>
         </div>`;
-    } catch (err) {
-      chatbox.innerHTML += `
-        <div class='bot'><b>Pbxguy:</b> Sorry! Something went wrong.
-          <div class="timestamp">${datestamp} @ ${timestamp}</div>
-        </div>`;
-    }
 
-    userInput.value = "";
-    chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
-  }
-</script>
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        const parsedResponse = data.response
+          .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+          .replace(/\n/g, "<br>");
+
+        chatbox.innerHTML += `
+          <div class='bot'><b>Pbxguy:</b> ${parsedResponse}
+            <div class="timestamp">${datestamp} @ ${timestamp}</div>
+          </div>`;
+      } catch (err) {
+        chatbox.innerHTML += `
+          <div class='bot'><b>Pbxguy:</b> Sorry! Something went wrong.
+            <div class="timestamp">${datestamp} @ ${timestamp}</div>
+          </div>`;
+      }
+
+      userInput.value = "";
+      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+    }
+  </script>
 </body>
 </html>
