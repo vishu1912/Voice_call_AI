@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -43,8 +41,8 @@ class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
-    pizza_size: str
-    crust_type: str
+    pizza_size: Optional[str]
+    crust_type: Optional[str]
 
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
@@ -85,7 +83,9 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
     """Add an item to the customer's order."""
     known_items = [
         "garlic toast", "pop", "salad", "wings", "pizza", "rockstar",
-        "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna"
+        "caesar salad", "greek salad", "nachos", "cheesy bread", "lasagna",
+        "family pack", "personal combo", "pbx1 combo", "pizza & wings combo",
+        "lasagna special deal", "chicken wings special", "any two pizza deal"
     ]
     if item.lower() in known_items:
         state["order"].append(item)
@@ -125,17 +125,24 @@ def user_message_node(state: AgentState) -> AgentState:
 def gemini_node(state: AgentState) -> AgentState:
     response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
-    state["summary"] = response.content
+
+    # Check for off-topic/hallucination triggers and neutralize
+    off_topic_triggers = [
+        "pickup lines", "history", "translate", "joke", "generate", "who are you",
+        "skills", "fun facts", "poem", "movie", "ai", "music"
+    ]
+    if any(trigger in response.content.lower() for trigger in off_topic_triggers):
+        state["summary"] = "Sorry! I can only help with food orders from PBX1 Pizza. 🍕 What would you like today?"
+    else:
+        state["summary"] = response.content
     return state
 
 def fixed_tools_condition(state: AgentState):
-    last_message = state["messages"][-1]
-    tool_calls = getattr(last_message, "tool_calls", [])
-    if not tool_calls:
-        return "default"
-    tool_call = tool_calls[0]
-    if isinstance(tool_call, dict) and "tool" in tool_call:
-        return tool_call["tool"]
+    last_msg = state["messages"][-1].content.lower()
+    if any(word in last_msg for word in ["add", "order", "get", "want", "pizza", "pop", "wings", "combo", "family pack"]):
+        return "add_to_order"
+    if "summary" in last_msg or "what did i order" in last_msg:
+        return "generate_order_summary"
     return "default"
 
 # Initial state
@@ -147,7 +154,7 @@ def init_state() -> AgentState:
         pizza_size=None,
         crust_type=None
     )
-    
+
 # Build graph
 tool_node = ToolNode(tools=[add_to_order, generate_order_summary])
 
