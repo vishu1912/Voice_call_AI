@@ -39,8 +39,8 @@ class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
-    pizza_size: Optional[str]
-    crust_type: Optional[str]
+    pizza_size: str
+    crust_type: str
 
 # Tools
 @tool
