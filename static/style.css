@@ -101,6 +101,7 @@ h2 {
 
     #chatbox {
         height: 250px;
+        width: 75px;
         font-size: 0.95rem;
     }
 
