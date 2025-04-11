@@ -189,7 +189,11 @@ def home():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_input = request.get_json().get("message")
+    user_input = request.get_json().get("message", "").strip()
+    
+    if not user_input:
+        return jsonify({"response": "❌ Please enter a message."})
+
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
