@@ -123,18 +123,27 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    response = gemini_llm.invoke(state["messages"])
+    # Rebuild full context including prompt and user messages
+    menu_system_msg = SystemMessage(content=MENU_PROMPT)
+    conversation = [menu_system_msg] + state["messages"][1:]  # Keep original prompt, but skip repeating it
+
+    response = gemini_llm.invoke(conversation)
     state["messages"].append(response)
 
-    # Check for off-topic/hallucination triggers and neutralize
-    off_topic_triggers = [
-        "pickup lines", "history", "translate", "joke", "generate", "who are you",
-        "skills", "fun facts", "poem", "movie", "ai", "music"
+    # Check if the response is off-topic or hallucinating (e.g., no match found)
+    hallucination_flags = [
+        "pickup lines", "history", "joke", "ai", "music", "poem", "translate", "favorite", "skills"
     ]
-    if any(trigger in response.content.lower() for trigger in off_topic_triggers):
-        state["summary"] = "Sorry! I can only help with food orders from PBX1 Pizza. 🍕 What would you like today?"
+    hallucination_keywords = ["I'm just here", "I'm an AI", "Sorry!", "To give you a better answer"]
+
+    if any(flag in state["messages"][-1].content.lower() for flag in hallucination_flags) or \
+       any(k in response.content for k in hallucination_keywords):
+        state["summary"] = (
+            "Hmm, I don't have details about that. For more info, feel free to call us at (672) 966-0101 📞"
+        )
     else:
         state["summary"] = response.content
+
     return state
 
 def fixed_tools_condition(state: AgentState):
