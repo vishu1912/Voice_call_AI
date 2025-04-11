@@ -127,7 +127,10 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    response = gemini_llm.invoke(state["messages"])
+    response = gemini_llm.invoke(
+        state["messages"],
+        tools=[add_to_order, generate_order_summary, send_order_email_tool]
+    )
     state["messages"].append(response)
     state["summary"] = response.content
     return state
