@@ -1,6 +1,6 @@
 body {
     font-family: Arial, sans-serif;
-    background: #1a1a1a; /* Dark gray background */
+    background: #0d0000;
     display: flex;
     justify-content: center;
     padding-top: 50px;
@@ -20,8 +20,8 @@ body {
 }
 
 .logo {
-    width: 100px;
-    height: auto;
+    width: 400px;
+    height: 200px;
     display: block;
     margin: 0 auto 10px;
 }
@@ -29,7 +29,7 @@ body {
 h2 {
     font-size: 1.8rem;
     margin: 0;
-    color: #1a1a1a; /* Light header text */
+    color: #0d0000;
 }
 
 #chatbox {
@@ -80,7 +80,7 @@ h2 {
 .input-row button {
     padding: 10px 20px;
     border-radius: 5px;
-    background-color: #d6a94a; /* Soft gold button */
+    background-color: #d69813; /* Soft gold button */
     color: #1a1a1a;
     border: none;
     cursor: pointer;
