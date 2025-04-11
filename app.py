@@ -106,6 +106,7 @@ def generate_order_summary(state: AgentState) -> AgentState:
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
     """Send the current order summary to the store email."""
+    print("🔔 Email tool called")
     if not state.get("summary"):
         state["summary"] = "❌ No summary available to email."
         return state
@@ -113,8 +114,11 @@ def send_order_email_tool(state: AgentState) -> AgentState:
     try:
         send_order_email(state["summary"])
         state["summary"] = "📧 Your order has been emailed to the store successfully!"
+        print("✅ Email tool completed")
     except Exception as e:
         state["summary"] = f"❌ Failed to send order email: {str(e)}"
+        print("❌ Email tool failed:", e)
+
     return state
 
 # LangGraph nodes
