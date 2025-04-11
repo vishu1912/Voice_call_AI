@@ -90,7 +90,7 @@ h2 {
 
 @media screen and (max-width: 480px) {
     .chat-container {
-        width: 95%;
+        width: 80%;
         padding: 15px;
     }
 
