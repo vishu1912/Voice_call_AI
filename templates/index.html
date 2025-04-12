@@ -8,12 +8,21 @@
   <title>Cactus Club Cafe Menu AI</title>
 </head>
 <body>
-  <!-- Trigger button for embedded use -->
+  <!-- 💬 Floating trigger for embed -->
   <button id="chatToggle" class="chat-toggle">💬</button>
 
   <div class="chat-container" id="chatContainer">
     <img src="{{ url_for('static', filename='cactus.jpg') }}" alt="Tasty bistro logo" class="logo" id="logoImage">
-    <h2 id="header">Cactus Club Cafe Agent</h2>
+
+    <!-- 🖥️ Main app header -->
+    <h2 id="header" class="main-header">Cactus Club Cafe Agent</h2>
+
+    <!-- 🌐 Embed header with close button -->
+    <div id="embedded-header" style="display: none; justify-content: space-between; align-items: center;">
+      <h2 style="margin: 0; font-size: 1rem;">Cactus Club Cafe Agent</h2>
+      <button onclick="window.parent.postMessage('close-chat', '*')" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
+    </div>
+
     <div id="chatbox"></div>
     <div class="input-row">
       <input type="text" id="userInput" placeholder="Ask about the menu or place your order...">
@@ -67,7 +76,7 @@
         header.classList.add("flash");
         setTimeout(() => header.classList.remove("flash"), 1000);
 
-        // 👇 Auto-scroll to latest chat
+        // Auto scroll
         chatbox.scrollTop = chatbox.scrollHeight;
       } catch (err) {
         chatbox.innerHTML += `
@@ -80,14 +89,18 @@
       chatbox.scrollTop = chatbox.scrollHeight;
     }
 
-    // 🌐 Embed mode logic
+    // 🌐 Embedded mode tweaks
     if (window !== window.parent) {
       document.getElementById("logoImage").style.display = "none";
       document.getElementById("chatContainer").classList.add("embedded-widget");
       document.body.style.background = "transparent";
+
+      // Show small header, hide default h2
+      document.querySelector(".main-header").style.display = "none";
+      document.getElementById("embedded-header").style.display = "flex";
     }
 
-    // 💬 Toggle chat bubble
+    // 💬 Floating chat toggle
     const toggleBtn = document.getElementById("chatToggle");
     toggleBtn.addEventListener("click", () => {
       const chat = document.getElementById("chatContainer");
