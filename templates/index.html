@@ -93,11 +93,11 @@
     if (window !== window.parent) {
       document.getElementById("logoImage").style.display = "none";
       document.getElementById("chatContainer").classList.add("embedded-widget");
-      document.body.style.background = "transparent";
 
       // Show small header, hide default h2
       document.querySelector(".main-header").style.display = "none";
       document.getElementById("embedded-header").style.display = "flex";
+      window.parent.postMessage("bot-responded", "*");
     }
 
     // 💬 Floating chat toggle
