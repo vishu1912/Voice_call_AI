@@ -8,6 +8,9 @@
   <title>Cactus Club Cafe Menu AI</title>
 </head>
 <body>
+  <!-- Trigger button for embedded use -->
+  <button id="chatToggle" class="chat-toggle">💬</button>
+
   <div class="chat-container" id="chatContainer">
     <img src="{{ url_for('static', filename='cactus.jpg') }}" alt="Tasty bistro logo" class="logo" id="logoImage">
     <h2 id="header">Cactus Club Cafe Agent</h2>
@@ -61,9 +64,11 @@
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
 
-        // 💡 Flash header when bot responds
         header.classList.add("flash");
         setTimeout(() => header.classList.remove("flash"), 1000);
+
+        // 👇 Auto-scroll to latest chat
+        chatbox.scrollTop = chatbox.scrollHeight;
       } catch (err) {
         chatbox.innerHTML += `
           <div class='bot'><b>Agent:</b> Sorry! Something went wrong.
@@ -72,14 +77,24 @@
       }
 
       userInput.value = "";
-      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+      chatbox.scrollTop = chatbox.scrollHeight;
     }
 
-    // ✅ Embedded mode tweaks
+    // 🌐 Embed mode logic
     if (window !== window.parent) {
       document.getElementById("logoImage").style.display = "none";
       document.getElementById("chatContainer").classList.add("embedded-widget");
     }
+
+    // 💬 Toggle chat bubble
+    const toggleBtn = document.getElementById("chatToggle");
+    toggleBtn.addEventListener("click", () => {
+      const chat = document.getElementById("chatContainer");
+      const isHidden = chat.style.display === "none" || chat.style.display === "";
+
+      chat.style.display = isHidden ? "flex" : "none";
+      toggleBtn.style.display = isHidden ? "none" : "block";
+    });
   </script>
 </body>
 </html>
