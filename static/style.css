@@ -92,7 +92,43 @@ h2 {
     font-weight: bold;
     flex-shrink: 0;
 }
+.embedded-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: 500px;
+  z-index: 9999;
+  border: 2px solid #fa9025;
+  padding-bottom: 10px;
+}
 
+.embedded-widget h2 {
+  font-size: 1.2rem;
+  margin-bottom: 5px;
+}
+
+.embedded-widget #chatbox {
+  height: 200px;
+  overflow-y: auto;
+  background: #fae8b6;
+}
+
+.embedded-widget .input-row {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.embedded-widget .input-row #userInput,
+.embedded-widget .input-row button {
+  width: 100%;
+}
+
+/* Header flash effect */
+.flash {
+  color: #fa9025 !important;
+  transition: color 0.3s ease-in-out;
+}
 @media screen and (max-width: 480px) {
     * {
         box-sizing: border-box;
