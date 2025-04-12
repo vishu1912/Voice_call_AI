@@ -92,43 +92,64 @@ h2 {
     font-weight: bold;
     flex-shrink: 0;
 }
-.embedded-widget {
+/* 💬 Floating bubble chat trigger */
+.chat-toggle {
   position: fixed;
   bottom: 20px;
+  right: 20px;
+  background-color: #fa9025;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 10000;
+  cursor: pointer;
+  display: none;
+}
+
+/* 📦 Embedded widget style */
+.embedded-widget {
+  position: fixed;
+  bottom: 80px;
   right: 20px;
   width: 320px;
   max-height: 500px;
   z-index: 9999;
   border: 2px solid #fa9025;
   padding-bottom: 10px;
+  background-color: #ffffff;
+  flex-direction: column;
+  display: none;
 }
 
 .embedded-widget h2 {
-  font-size: 1.2rem;
+  font-size: 1rem;
   margin-bottom: 5px;
 }
 
+/* 📩 Make chat scrollable */
 .embedded-widget #chatbox {
   height: 200px;
   overflow-y: auto;
   background: #fae8b6;
-  scroll-behavior: smooth;
 }
 
-.embedded-widget .input-row {
-  flex-direction: column;
-  gap: 8px;
+/* Hide logo in embed */
+.embedded-widget .logo {
+  display: none;
 }
 
-.embedded-widget .input-row #userInput,
-.embedded-widget .input-row button {
-  width: 100%;
-}
-
-/* Header flash effect */
 .flash {
   color: #fa9025 !important;
   transition: color 0.3s ease-in-out;
+}
+
+/* Only show toggle button when embedded */
+body:has(.embedded-widget) .chat-toggle {
+  display: block;
 }
 @media screen and (max-width: 480px) {
     * {
