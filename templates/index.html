@@ -7,17 +7,17 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <title>Cactus Club Cafe Menu AI</title>
 </head>
-<body>
-  <!-- 💬 Floating trigger for embed -->
-  <button id="chatToggle" class="chat-toggle">💬</button>
+<body style="background: transparent;">
+  <!-- 💬 Floating trigger for embed (hidden by default) -->
+  <button id="chatToggle" class="chat-toggle" style="display: none;">💬</button>
 
   <div class="chat-container" id="chatContainer">
     <img src="{{ url_for('static', filename='cactus.jpg') }}" alt="Tasty bistro logo" class="logo" id="logoImage">
 
-    <!-- 🖥️ Main app header -->
+    <!-- 🖥️ Main header -->
     <h2 id="header" class="main-header">Cactus Club Cafe Agent</h2>
 
-    <!-- 🌐 Embed header with close button -->
+    <!-- 🌐 Embedded header (hidden in app view) -->
     <div id="embedded-header" style="display: none; justify-content: space-between; align-items: center;">
       <h2 style="margin: 0; font-size: 1rem;">Cactus Club Cafe Agent</h2>
       <button onclick="window.parent.postMessage('close-chat', '*')" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
@@ -32,9 +32,7 @@
 
   <script>
     document.getElementById("userInput").addEventListener("keyup", function (event) {
-      if (event.key === "Enter") {
-        sendMessage();
-      }
+      if (event.key === "Enter") sendMessage();
     });
 
     async function sendMessage() {
@@ -64,51 +62,35 @@
         });
 
         const data = await response.json();
-        const parsedResponse = data.response
-          .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
-          .replace(/\n/g, "<br>");
+        const parsed = data.response.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
 
         chatbox.innerHTML += `
-          <div class='bot'><b>Agent:</b> ${parsedResponse}
+          <div class='bot'><b>Agent:</b> ${parsed}
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
 
         header.classList.add("flash");
         setTimeout(() => header.classList.remove("flash"), 1000);
 
-        // Auto scroll
+        window.parent.postMessage("bot-responded", "*");
         chatbox.scrollTop = chatbox.scrollHeight;
-      } catch (err) {
-        chatbox.innerHTML += `
-          <div class='bot'><b>Agent:</b> Sorry! Something went wrong.
-            <div class="timestamp">${datestamp} @ ${timestamp}</div>
-          </div>`;
+      } catch {
+        chatbox.innerHTML += `<div class='bot'><b>Agent:</b> Sorry! Something went wrong.</div>`;
       }
 
       userInput.value = "";
       chatbox.scrollTop = chatbox.scrollHeight;
     }
 
-    // 🌐 Embedded mode tweaks
+    // 🌐 EMBED MODE DETECTION
     if (window !== window.parent) {
+      document.body.style.background = "transparent";
       document.getElementById("logoImage").style.display = "none";
       document.getElementById("chatContainer").classList.add("embedded-widget");
-
-      // Show small header, hide default h2
       document.querySelector(".main-header").style.display = "none";
       document.getElementById("embedded-header").style.display = "flex";
-      window.parent.postMessage("bot-responded", "*");
+      document.getElementById("chatToggle").style.display = "none"; // Hidden in iframe
     }
-
-    // 💬 Floating chat toggle
-    const toggleBtn = document.getElementById("chatToggle");
-    toggleBtn.addEventListener("click", () => {
-      const chat = document.getElementById("chatContainer");
-      const isHidden = chat.style.display === "none" || chat.style.display === "";
-
-      chat.style.display = isHidden ? "flex" : "none";
-      toggleBtn.style.display = isHidden ? "none" : "block";
-    });
   </script>
 </body>
 </html>
