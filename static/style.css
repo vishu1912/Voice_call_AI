@@ -112,6 +112,7 @@ h2 {
   height: 200px;
   overflow-y: auto;
   background: #fae8b6;
+  scroll-behavior: smooth;
 }
 
 .embedded-widget .input-row {
