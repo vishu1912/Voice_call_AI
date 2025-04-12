@@ -8,9 +8,9 @@
   <title>Cactus Club Cafe Menu AI</title>
 </head>
 <body>
-  <div class="chat-container">
-    <img src="{{ url_for('static', filename='cactus.jpg') }}" alt="Tasty bistro logo" class="logo">
-    <h2>Cactus Club Cafe Agent</h2>
+  <div class="chat-container" id="chatContainer">
+    <img src="{{ url_for('static', filename='cactus.jpg') }}" alt="Tasty bistro logo" class="logo" id="logoImage">
+    <h2 id="header">Cactus Club Cafe Agent</h2>
     <div id="chatbox"></div>
     <div class="input-row">
       <input type="text" id="userInput" placeholder="Ask about the menu or place your order...">
@@ -29,6 +29,7 @@
       const userInput = document.getElementById("userInput");
       const chatbox = document.getElementById("chatbox");
       const message = userInput.value.trim();
+      const header = document.getElementById("header");
 
       if (!message) return;
 
@@ -59,6 +60,10 @@
           <div class='bot'><b>Agent:</b> ${parsedResponse}
             <div class="timestamp">${datestamp} @ ${timestamp}</div>
           </div>`;
+
+        // 💡 Flash header when bot responds
+        header.classList.add("flash");
+        setTimeout(() => header.classList.remove("flash"), 1000);
       } catch (err) {
         chatbox.innerHTML += `
           <div class='bot'><b>Agent:</b> Sorry! Something went wrong.
@@ -68,6 +73,12 @@
 
       userInput.value = "";
       chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+    }
+
+    // ✅ Embedded mode tweaks
+    if (window !== window.parent) {
+      document.getElementById("logoImage").style.display = "none";
+      document.getElementById("chatContainer").classList.add("embedded-widget");
     }
   </script>
 </body>
