@@ -216,22 +216,23 @@ def chat():
 @app.route("/voice", methods=["POST"])
 def voice():
     response = VoiceResponse()
+    
+    # Play your natural ElevenLabs greeting
+    response.play("https://your-render-app-url/static/greeting.mp3")
 
+    # Gather user speech input
     gather = Gather(
-        input="speech",
-        action="/process_voice",
-        method="POST",
-        speech_timeout="auto",
-        language="en-US",  # You can switch to "en-CA" if needed
-        hints="Feenie Burger, Bellini, Cheesecake, Chicken Wings, Takeout, Pickup"
+        input='speech',
+        timeout=5,
+        speech_timeout='auto',
+        action='/process_voice',
+        method='POST',
+        language='en-US'
     )
-    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?", voice="Polly.Joanna")
-
     response.append(gather)
-
-    # If user does not respond, retry
-    response.redirect("/voice")
-
+    
+    # In case of silence, loop back
+    response.redirect('/voice')
     return str(response)
     
 @app.route("/process_voice", methods=["POST"])
