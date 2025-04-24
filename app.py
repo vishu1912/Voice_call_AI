@@ -183,43 +183,40 @@ def chat():
 def voice():
     response = VoiceResponse()
 
-    # Play ambiance if you have an MP3 URL (optional, we can host it later)
-    # response.play("https://yourdomain.com/static/restaurant-ambiance.mp3", loop=1)
-
-    # Gather speech input using a natural female voice
     gather = Gather(
-        input='speech',
-        timeout=5,
-        speech_timeout='auto',
-        action='/process_voice',
-        method='POST',
-        language='en-CA',
-        voice='Polly.Joanna'  # More realistic female voice (works if using Amazon Polly via Twilio)
+        input="speech",
+        action="/process_voice",
+        method="POST",
+        speech_timeout="auto",
+        language="en-US",  # You can switch to "en-CA" if needed
+        hints="Feenie Burger, Bellini, Cheesecake, Chicken Wings, Takeout, Pickup"
     )
-    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?", voice='Polly.Joanna')
+    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?", voice="Polly.Joanna")
+
     response.append(gather)
 
-    # If user says nothing
-    response.redirect('/voice')
+    # If user does not respond, retry
+    response.redirect("/voice")
 
     return str(response)
     
 @app.route("/process_voice", methods=["POST"])
 def process_voice():
     speech_result = request.form.get("SpeechResult", "").strip()
-    
-    if not speech_result:
-        return str(VoiceResponse().say("Sorry, I didn't catch that. Could you please repeat?", voice="Polly.Joanna"))
+    print("User said:", speech_result)  # ✅ Add this to debug
 
-    # Send speech input to Gemini
+    response = VoiceResponse()
+
+    if not speech_result:
+        response.say("Sorry, I didn't catch that. Can you say it again?", voice="Polly.Joanna")
+        return str(response)
+
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
-    # Respond back using Twilio voice
-    response = VoiceResponse()
     response.say(reply_text, voice="Polly.Joanna")
     return str(response)
-
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
