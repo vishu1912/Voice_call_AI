@@ -1,8 +1,6 @@
 import os
-import os
 import smtplib
 import requests
-from pydub import AudioSegment
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -11,6 +9,7 @@ from typing import List
 from typing_extensions import TypedDict
 from flask import Flask, request, render_template, jsonify
 from flask_session import Session
+from twilio.twiml.voice_response import VoiceResponse, Gather
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -18,13 +17,12 @@ from langchain_core.tools import tool
 from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
-from twilio.twiml.voice_response import VoiceResponse, Gather
 
-# Load env
+# Load environment variables
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Flask app
+# Flask setup
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "filesystem"
@@ -34,18 +32,21 @@ Session(app)
 with open("menu_prompt.txt", "r") as f:
     MENU_PROMPT = f.read()
 
-# Gemini LLM setup
+# Gemini LLM
 gemini_llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     api_key=GOOGLE_API_KEY
 )
 
 # Agent State
+typing_msg = HumanMessage
+
 class AgentState(TypedDict):
-    messages: List[HumanMessage]
+    messages: List[typing_msg]
     order: List[str]
     summary: str
-    
+
+# Email Sender
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
@@ -56,20 +57,14 @@ def send_order_email(summary: str):
     msg["From"] = sender
     msg["To"] = recipient
 
-    html_summary = summary.replace('\n', '<br>')
-
     html = f"""
-    <html>
-      <body>
-        <h2>🧾 PBX1 Pizza Order Summary</h2>
-        <p>{html_summary}</p>
-        <br>
-        <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
-      </body>
-    </html>
-    """
-    part = MIMEText(html, "html")
-    msg.attach(part)
+    <html><body>
+    <h2>🧾 PBX1 Pizza Order Summary</h2>
+    <p>{summary.replace('\n', '<br>')}</p>
+    <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
+    </body></html>"""
+
+    msg.attach(MIMEText(html, "html"))
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -79,47 +74,38 @@ def send_order_email(summary: str):
     except Exception as e:
         print("❌ Failed to send email:", e)
 
-def text_to_speech_elevenlabs(text):
+# ElevenLabs TTS
+def text_to_speech_elevenlabs(text: str):
     api_key = os.getenv("ELEVEN_API_KEY")
-    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Default: Rachel
+    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
-
-    headers = {
-        "xi-api-key": api_key,
-        "Content-Type": "application/json"
-    }
-
+    headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
     payload = {
         "text": text,
         "model_id": "eleven_monolingual_v1",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.8
-        }
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
     }
-
     response = requests.post(url, headers=headers, json=payload, stream=True)
 
     if response.status_code == 200:
-        file_path = "static/reply.mp3"
-        with open(file_path, "wb") as f:
+        with open("static/reply.mp3", "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-        return file_path
+                f.write(chunk)
+        return "static/reply.mp3"
     else:
         print("❌ ElevenLabs Error:", response.text)
         return None
+
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
     known_items = [
-        "Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet",
-        "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"
+        "Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon",
+        "Garden Roti", "Squash Shakshuka Skillet", "Pune Style Poh", "Veg Lunch Special",
+        "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"
     ]
-    if item.lower() in known_items:
+    if item.lower() in [i.lower() for i in known_items]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
     else:
@@ -128,33 +114,23 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
-        lines = ["\n🧾 Your Order Summary:"]
-        for item in state["order"]:
-            lines.append(f"- {item}")
-        state["summary"] = "\n".join(lines)
+        state["summary"] = "\n🧾 Your Order Summary:\n" + "\n".join(f"- {item}" for item in state["order"])
     return state
 
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
-    """Send the current order summary to the store email."""
     if not state.get("summary"):
         state["summary"] = "❌ No summary available to email."
-        return state
-
-    try:
+    else:
         send_order_email(state["summary"])
         state["summary"] = "📧 Your order has been emailed to the store successfully!"
-    except Exception as e:
-        state["summary"] = f"❌ Failed to send order email: {str(e)}"
     return state
 
 # LangGraph nodes
 def user_message_node(state: AgentState) -> AgentState:
-    print(f"User message: {state['messages'][-1].content}")
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
@@ -168,27 +144,14 @@ def fixed_tools_condition(state: AgentState):
     tool_calls = getattr(last_message, "tool_calls", [])
     if not tool_calls:
         return "default"
-    tool_call = tool_calls[0]
-    if isinstance(tool_call, dict) and "tool" in tool_call:
-        return tool_call["tool"]
-    return "default"
+    return tool_calls[0].get("tool", "default") if isinstance(tool_calls[0], dict) else "default"
 
-# Initial state
-def init_state() -> AgentState:
-    return AgentState(
-        messages=[SystemMessage(content=MENU_PROMPT)],
-        order=[],
-        summary=""
-    )
-
-# Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary,send_order_email_tool])
-
+# Graph setup
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool])
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
 builder.add_node("llm_node", RunnableLambda(gemini_node))
 builder.add_node("tool_node", tool_node)
-
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
@@ -197,7 +160,6 @@ builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "default": END
 })
 builder.add_edge("tool_node", END)
-
 pbx_flow = builder.compile()
 session_state = init_state()
 
@@ -216,53 +178,37 @@ def chat():
 @app.route("/voice", methods=["POST"])
 def voice():
     response = VoiceResponse()
-    
-    # Play your natural ElevenLabs greeting
-    response.play(""https://voice-call-ai.onrender.com/static/greeting.mp3"")
-
-    # Gather user speech input
+    greeting = "Hi there! Welcome to Cactus Club Cafe. What would you like to order today?"
+    text_to_speech_elevenlabs(greeting)
+    response.play(f"https://{request.host}/static/reply.mp3")
     gather = Gather(
-        input='speech',
-        timeout=5,
-        speech_timeout='auto',
-        action='/process_voice',
-        method='POST',
-        language='en-US'
+        input='speech', timeout=5, speech_timeout='auto',
+        action='/process_voice', method='POST', language='en-US'
     )
     response.append(gather)
-    
-    # In case of silence, loop back
     response.redirect('/voice')
     return str(response)
-    
+
 @app.route("/process_voice", methods=["POST"])
 def process_voice():
-    from twilio.twiml.voice_response import VoiceResponse, Play
-
     speech_result = request.form.get("SpeechResult", "").strip()
-
+    response = VoiceResponse()
     if not speech_result:
-        response = VoiceResponse()
         response.say("Sorry, I didn't catch that. Could you please repeat?", voice="Polly.Joanna")
         return str(response)
 
-    # Gemini response
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
-    # ElevenLabs TTS
     audio_path = text_to_speech_elevenlabs(reply_text)
-
-    response = VoiceResponse()
     if audio_path:
-        # Make sure file is accessible from a public URL in production
         audio_url = f"https://{request.host}/static/reply.mp3"
         response.play(audio_url)
     else:
         response.say("There was a problem generating audio.", voice="Polly.Joanna")
 
     return str(response)
-    
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
