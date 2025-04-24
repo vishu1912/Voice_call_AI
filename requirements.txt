@@ -10,3 +10,4 @@ langchain-google-genai
 squareup
 twilio
 pydub
+requests
