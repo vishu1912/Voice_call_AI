@@ -1,6 +1,8 @@
 import os
 import os
 import smtplib
+import requests
+from pydub import AudioSegment
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -77,6 +79,38 @@ def send_order_email(summary: str):
     except Exception as e:
         print("❌ Failed to send email:", e)
 
+def text_to_speech_elevenlabs(text):
+    api_key = os.getenv("ELEVEN_API_KEY")
+    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Default: Rachel
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
+
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "text": text,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.8
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload, stream=True)
+
+    if response.status_code == 200:
+        file_path = "static/reply.mp3"
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+        return file_path
+    else:
+        print("❌ ElevenLabs Error:", response.text)
+        return None
 # Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
@@ -202,20 +236,31 @@ def voice():
     
 @app.route("/process_voice", methods=["POST"])
 def process_voice():
-    speech_result = request.form.get("SpeechResult", "").strip()
-    print("User said:", speech_result)  # ✅ Add this to debug
+    from twilio.twiml.voice_response import VoiceResponse, Play
 
-    response = VoiceResponse()
+    speech_result = request.form.get("SpeechResult", "").strip()
 
     if not speech_result:
-        response.say("Sorry, I didn't catch that. Can you say it again?", voice="Polly.Joanna")
+        response = VoiceResponse()
+        response.say("Sorry, I didn't catch that. Could you please repeat?", voice="Polly.Joanna")
         return str(response)
 
+    # Gemini response
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
-    response.say(reply_text, voice="Polly.Joanna")
+    # ElevenLabs TTS
+    audio_path = text_to_speech_elevenlabs(reply_text)
+
+    response = VoiceResponse()
+    if audio_path:
+        # Make sure file is accessible from a public URL in production
+        audio_url = f"https://{request.host}/static/reply.mp3"
+        response.play(audio_url)
+    else:
+        response.say("There was a problem generating audio.", voice="Polly.Joanna")
+
     return str(response)
     
 if __name__ == "__main__":
