@@ -16,6 +16,7 @@ from langchain_core.tools import tool
 from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
+from twilio.twiml.voice_response import VoiceResponse, Gather
 
 # Load env
 load_dotenv()
@@ -177,3 +178,45 @@ def chat():
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
+
+@app.route("/voice", methods=["POST"])
+def voice():
+    response = VoiceResponse()
+
+    # Play ambiance if you have an MP3 URL (optional, we can host it later)
+    # response.play("https://yourdomain.com/static/restaurant-ambiance.mp3", loop=1)
+
+    # Gather speech input using a natural female voice
+    gather = Gather(
+        input='speech',
+        timeout=5,
+        speech_timeout='auto',
+        action='/process_voice',
+        method='POST',
+        language='en-CA',
+        voice='Polly.Joanna'  # More realistic female voice (works if using Amazon Polly via Twilio)
+    )
+    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?", voice='Polly.Joanna')
+    response.append(gather)
+
+    # If user says nothing
+    response.redirect('/voice')
+
+    return str(response)
+    
+@app.route("/process_voice", methods=["POST"])
+def process_voice():
+    speech_result = request.form.get("SpeechResult", "").strip()
+    
+    if not speech_result:
+        return str(VoiceResponse().say("Sorry, I didn't catch that. Could you please repeat?", voice="Polly.Joanna"))
+
+    # Send speech input to Gemini
+    session_state["messages"].append(HumanMessage(content=speech_result))
+    updated_state = pbx_flow.invoke(session_state)
+    reply_text = updated_state["summary"]
+
+    # Respond back using Twilio voice
+    response = VoiceResponse()
+    response.say(reply_text, voice="Polly.Joanna")
+    return str(response)
