@@ -218,7 +218,7 @@ def voice():
     response = VoiceResponse()
     
     # Play your natural ElevenLabs greeting
-    response.play("https://your-render-app-url/static/greeting.mp3")
+    response.play(""https://voice-call-ai.onrender.com/static/greeting.mp3"")
 
     # Gather user speech input
     gather = Gather(
