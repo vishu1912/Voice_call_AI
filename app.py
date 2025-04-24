@@ -246,22 +246,21 @@ def process_voice():
 @app.route("/voice", methods=["POST"])
 def voice():
     response = VoiceResponse()
-    
-    # Play your natural ElevenLabs greeting
-    response.play("https://voice-call-ai.onrender.com/static/greeting.mp3")
 
-    # Gather user speech input
+    # Optional: Play ElevenLabs greeting if hosted correctly
+    greeting_url = f"https://{request.host}/static/greeting.mp3"
+    response.play(greeting_url)
+
     gather = Gather(
         input='speech',
-        timeout=5,
-        speech_timeout='auto',
         action='/process_voice',
         method='POST',
+        speech_timeout='auto',
         language='en-US'
     )
+    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?")
     response.append(gather)
-    
-    # In case of silence, loop back
+
     response.redirect('/voice')
     return str(response)
 
