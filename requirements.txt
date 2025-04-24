@@ -8,3 +8,5 @@ langgraph
 google-generativeai
 langchain-google-genai
 squareup
+twilio
+pydub
