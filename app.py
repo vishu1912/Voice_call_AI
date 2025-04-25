@@ -168,6 +168,7 @@ def generate_intro_audio():
         print("🎙️ Generating intro greeting...")
         text_to_speech_elevenlabs(intro_text, output_path=greeting_path)
 
+
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
     """Send the current order summary to the store email."""
@@ -181,6 +182,11 @@ def send_order_email_tool(state: AgentState) -> AgentState:
     except Exception as e:
         state["summary"] = f"❌ Failed to send order email: {str(e)}"
     return state
+    
+@tool
+def casual_response_tool(state: AgentState) -> AgentState:
+    """Used for natural responses when no specific tool matches."""
+    return state  # Just echoes back Gemini response from `summary`
 
 # LangGraph nodes
 def user_message_node(state: AgentState) -> AgentState:
@@ -198,10 +204,11 @@ def fixed_tools_condition(state: AgentState):
     tool_calls = getattr(last_message, "tool_calls", [])
     if not tool_calls:
         return "default"
-    tool_call = tool_calls[0]
-    if isinstance(tool_call, dict) and "tool" in tool_call:
-        return tool_call["tool"]
-    return "default"
+    tool_name = tool_call["tool"]
+    if tool_name in ["add_to_order", "generate_order_summary", "send_order_email"]:
+        return tool_name
+    else:
+        return "casual_response_tool"
 
 # Initial state
 def init_state() -> AgentState:
@@ -239,6 +246,14 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
+
+    # Optional: Prepend context to guide Gemini's tone
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User seems to be asking about ordering."),
+        *session_state["messages"]
+    ]
+
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -249,7 +264,6 @@ def process_voice():
     response = VoiceResponse()
 
     if not speech_result:
-        # Generate ElevenLabs TTS for "I didn't catch that"
         fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
         if fallback_audio_path:
             fallback_audio_url = f"https://{request.host}/static/reply.mp3"
@@ -258,12 +272,17 @@ def process_voice():
             response.say("Sorry, something went wrong.")
         return str(response)
 
-    # Get response from Gemini
+    # Optional: Prepend helpful tone before user input
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User is on the phone and trying to order something."),
+        *session_state["messages"]
+    ]
+
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
-    # Convert reply to audio using ElevenLabs
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
         audio_url = f"https://{request.host}/static/reply.mp3"
@@ -282,11 +301,11 @@ def voice():
 
     gather = Gather(
         input='speech',
-        timeout=5,
+        timeout=3,
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='en-US'
+        language='hi-IN'
     )
     response.append(gather)
 
