@@ -204,6 +204,7 @@ def fixed_tools_condition(state: AgentState):
     tool_calls = getattr(last_message, "tool_calls", [])
     if not tool_calls:
         return "default"
+    tool_call = tool_calls[0]
     tool_name = tool_call["tool"]
     if tool_name in ["add_to_order", "generate_order_summary", "send_order_email"]:
         return tool_name
@@ -219,7 +220,7 @@ def init_state() -> AgentState:
     )
 
 # Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary,send_order_email_tool])
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool, casual_response_tool])
 
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
@@ -258,20 +259,38 @@ def chat():
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    user_input = request.get_json().get("message")
+@app.route("/process_voice", methods=["POST"])
+def process_voice():
+    speech_result = request.form.get("SpeechResult", "").strip()
+    response = VoiceResponse()
 
-    # Insert context starter
+    if not speech_result:
+        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
+        if fallback_audio_path:
+            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
+            response.play(fallback_audio_url)
+        else:
+            response.say("Sorry, something went wrong.")
+        return str(response)
+
+    # Add system memory adjustment here
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
         HumanMessage(content="User seems to be asking about their order."),
-        *session_state["messages"],
+        HumanMessage(content=speech_result),
     ]
 
-    session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
-    return jsonify({"response": updated_state["summary"]})
+    reply_text = updated_state["summary"]
+
+    audio_path = text_to_speech_elevenlabs(reply_text)
+    if audio_path:
+        audio_url = f"https://{request.host}/static/reply.mp3"
+        response.play(audio_url)
+    else:
+        response.say("Sorry, I couldn't generate a response right now.")
+
+    return str(response)
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -286,7 +305,7 @@ def voice():
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='hi-IN'
+        language='en-US'
     )
     response.append(gather)
 
