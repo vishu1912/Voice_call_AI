@@ -78,9 +78,9 @@ def send_order_email(summary: str):
     except Exception as e:
         print("❌ Failed to send email:", e)
 
-def text_to_speech_elevenlabs(text):
+def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     api_key = os.getenv("ELEVEN_API_KEY")
-    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Default: Rachel
+    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel as default
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
 
@@ -101,12 +101,12 @@ def text_to_speech_elevenlabs(text):
     response = requests.post(url, headers=headers, json=payload, stream=True)
 
     if response.status_code == 200:
-        file_path = "static/reply.mp3"
-        with open(file_path, "wb") as f:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
-        return file_path
+        return output_path
     else:
         print("❌ ElevenLabs Error:", response.text)
         return None
@@ -137,6 +137,13 @@ def generate_order_summary(state: AgentState) -> AgentState:
             lines.append(f"- {item}")
         state["summary"] = "\n".join(lines)
     return state
+
+def generate_intro_audio():
+    greeting_path = "static/greeting.mp3"
+    if not os.path.exists(greeting_path):
+        intro_text = "Hi there! Welcome to Cactus Club Cafe. What would you like to order today?"
+        print("🎙️ Generating intro greeting...")
+        text_to_speech_elevenlabs(intro_text, output_path=greeting_path)
 
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
@@ -245,14 +252,25 @@ def process_voice():
 
 @app.route("/voice", methods=["POST"])
 def voice():
-    from twilio.twiml.voice_response import VoiceResponse, Gather
     response = VoiceResponse()
-    gather = Gather(input='speech', action='/process_voice', method='POST')
-    gather.say("Welcome to Cactus Club Cafe. What would you like today?")
+
+    # Use the ElevenLabs-generated greeting
+    response.play(f"https://{request.host}/static/greeting.mp3")
+
+    gather = Gather(
+        input='speech',
+        timeout=5,
+        speech_timeout='auto',
+        action='/process_voice',
+        method='POST',
+        language='en-US'
+    )
     response.append(gather)
+
     response.redirect('/voice')
     return str(response)
 
+generate_intro_audio()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
