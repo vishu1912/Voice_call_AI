@@ -245,22 +245,11 @@ def process_voice():
 
 @app.route("/voice", methods=["POST"])
 def voice():
+    from twilio.twiml.voice_response import VoiceResponse, Gather
     response = VoiceResponse()
-
-    # Optional: Play ElevenLabs greeting if hosted correctly
-    greeting_url = f"https://{request.host}/static/greeting.mp3"
-    response.play(greeting_url)
-
-    gather = Gather(
-        input='speech',
-        action='/process_voice',
-        method='POST',
-        speech_timeout='auto',
-        language='en-US'
-    )
-    gather.say("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?")
+    gather = Gather(input='speech', action='/process_voice', method='POST')
+    gather.say("Welcome to Cactus Club Cafe. What would you like today?")
     response.append(gather)
-
     response.redirect('/voice')
     return str(response)
 
