@@ -110,6 +110,29 @@ def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     else:
         print("❌ ElevenLabs Error:", response.text)
         return None
+        
+def generate_intro_with_ambiance():
+    greeting_path = "static/greeting.mp3"
+    ambiance_path = "static/restaurant_ambiance.mp3"
+    combined_path = "static/combined_greeting.mp3"
+
+    if not os.path.exists(combined_path) and os.path.exists(greeting_path) and os.path.exists(ambiance_path):
+        greeting = AudioSegment.from_mp3(greeting_path)
+        ambiance = AudioSegment.from_mp3(ambiance_path) - 10  # Reduce volume a bit
+
+        # Loop ambiance to be same length as greeting or longer
+        if len(ambiance) < len(greeting):
+            loop_count = int(len(greeting) / len(ambiance)) + 1
+            ambiance = ambiance * loop_count
+
+        ambiance = ambiance[:len(greeting)]  # Match lengths
+
+        # Overlay ambiance *under* the greeting
+        combined = greeting.overlay(ambiance)
+
+        # Export merged file
+        combined.export(combined_path, format="mp3")
+        print("🎧 Combined greeting with ambiance created.")
 
 # Tools
 @tool
@@ -254,11 +277,8 @@ def process_voice():
 def voice():
     response = VoiceResponse()
 
-    # Play the restaurant ambiance in the background
-    response.play(f"https://{request.host}/static/restaurant_ambiance.mp3", loop=99)
-
     # Greeting using ElevenLabs voice (already pre-generated)
-    response.play(f"https://{request.host}/static/greeting.mp3")
+    response.play(f"https://{request.host}/static/combined_greeting.mp3")
 
     gather = Gather(
         input='speech',
@@ -274,6 +294,7 @@ def voice():
     return str(response)
 
 generate_intro_audio()
+generate_intro_with_ambiance()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
