@@ -254,7 +254,10 @@ def process_voice():
 def voice():
     response = VoiceResponse()
 
-    # Use the ElevenLabs-generated greeting
+    # Play the restaurant ambiance in the background
+    response.play(f"https://{request.host}/static/restaurant_ambiance.mp3", loop=99)
+
+    # Greeting using ElevenLabs voice (already pre-generated)
     response.play(f"https://{request.host}/static/greeting.mp3")
 
     gather = Gather(
