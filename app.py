@@ -247,50 +247,31 @@ def home():
 def chat():
     user_input = request.get_json().get("message")
 
-    # Optional: Prepend context to guide Gemini's tone
+    # Insert context starter
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking about ordering."),
-        *session_state["messages"]
+        HumanMessage(content="User seems to be asking about their order."),
+        *session_state["messages"],
     ]
 
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
 
-@app.route("/process_voice", methods=["POST"])
-def process_voice():
-    speech_result = request.form.get("SpeechResult", "").strip()
-    response = VoiceResponse()
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_input = request.get_json().get("message")
 
-    if not speech_result:
-        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
-        if fallback_audio_path:
-            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
-            response.play(fallback_audio_url)
-        else:
-            response.say("Sorry, something went wrong.")
-        return str(response)
-
-    # Optional: Prepend helpful tone before user input
+    # Insert context starter
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User is on the phone and trying to order something."),
-        *session_state["messages"]
+        HumanMessage(content="User seems to be asking about their order."),
+        *session_state["messages"],
     ]
 
-    session_state["messages"].append(HumanMessage(content=speech_result))
+    session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
-    reply_text = updated_state["summary"]
-
-    audio_path = text_to_speech_elevenlabs(reply_text)
-    if audio_path:
-        audio_url = f"https://{request.host}/static/reply.mp3"
-        response.play(audio_url)
-    else:
-        response.say("Sorry, I couldn't generate a response right now.")
-
-    return str(response)
+    return jsonify({"response": updated_state["summary"]})
 
 @app.route("/voice", methods=["POST"])
 def voice():
