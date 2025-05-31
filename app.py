@@ -209,11 +209,14 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
+    
+    # Optional contextual boost
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking for help about ordering."),
+        HumanMessage(content="User is chatting through the website."),
         *session_state["messages"]
     ]
+    
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -226,45 +229,30 @@ def process_voice():
     if not speech_result:
         fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
         if fallback_audio_path:
-            response.play(f"https://{request.host}/static/reply.mp3")
+            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
+            response.play(fallback_audio_url)
         else:
             response.say("Sorry, something went wrong.")
-        response.redirect('/voice')
         return str(response)
 
-    if any(x in speech_result.lower() for x in ["thank you", "bye", "that's all", "done"]):
-        goodbye_audio_path = text_to_speech_elevenlabs("Thanks for calling Cactus Club Cafe. Have a great day!")
-        if goodbye_audio_path:
-            response.play(f"https://{request.host}/static/reply.mp3")
-        else:
-            response.say("Goodbye!")
-        return str(response)
-
+    # Optional voice context injection
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User is asking about an order or a menu item."),
+        HumanMessage(content="User is interacting over phone call."),
         *session_state["messages"]
     ]
+    
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
-        response.play(f"https://{request.host}/static/reply.mp3")
+        audio_url = f"https://{request.host}/static/reply.mp3"
+        response.play(audio_url)
     else:
         response.say("Sorry, I couldn't generate a response right now.")
 
-    gather = Gather(
-        input='speech',
-        timeout=3,
-        speech_timeout='auto',
-        action='/process_voice',
-        method='POST',
-        language='en-US'
-    )
-    response.append(gather)
-    response.redirect('/voice')
     return str(response)
 
 @app.route("/voice", methods=["POST"])
