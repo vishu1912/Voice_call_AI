@@ -23,29 +23,30 @@ from twilio.twiml.voice_response import VoiceResponse, Gather
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Flask app setup
+# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Load menu prompt
+# Load prompt
 with open("menu_prompt.txt", "r") as f:
     MENU_PROMPT = f.read()
 
-# Gemini LLM setup
+# Initialize Gemini LLM
 gemini_llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     api_key=GOOGLE_API_KEY
 )
 
+# Define the state type
 class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
 
 def send_order_email(summary: str):
-    """Send the order summary to the store via email."""
+    """Send an order summary to a preset email using Gmail SMTP."""
     sender = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
     recipient = os.getenv("TO_EMAIL")
@@ -57,27 +58,34 @@ def send_order_email(summary: str):
 
     html_summary = summary.replace('\n', '<br>')
     html = f"""
-    <html><body>
-    <h2>🧾 PBX1 Pizza Order Summary</h2>
-    <p>{html_summary}</p>
-    <br><p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
-    </body></html>
+    <html>
+      <body>
+        <h2>🧾 PBX1 Pizza Order Summary</h2>
+        <p>{html_summary}</p>
+        <br>
+        <p><i>Order received at {datetime.now().strftime('%I:%M %p on %B %d, %Y')}</i></p>
+      </body>
+    </html>
     """
-    msg.attach(MIMEText(html, "html"))
+    part = MIMEText(html, "html")
+    msg.attach(part)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender, password)
             server.sendmail(sender, recipient, msg.as_string())
-        print("✅ Order email sent.")
+            print("✅ Order email sent.")
     except Exception as e:
         print("❌ Failed to send email:", e)
 
-
 def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
-    """Convert text to speech using ElevenLabs API."""
+    """Convert text to speech using ElevenLabs and save to mp3."""
     api_key = os.getenv("ELEVEN_API_KEY")
     voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+
+    # Add filler words if appropriate
+    fillers = ["Okay...", "Sure...", "Nice choice...", "Umm..."]
+    text = f"{fillers[0]} {text}"  # You can randomize or contextualize this
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
     headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
@@ -101,13 +109,15 @@ def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
         return None
 
 def generate_intro_audio():
-    """Generate intro greeting if not already generated."""
+    """Generate a greeting intro audio clip using ElevenLabs."""
     greeting_path = "static/greeting.mp3"
     if not os.path.exists(greeting_path):
-        text_to_speech_elevenlabs("Hi there! Welcome to Cactus Club Cafe. What would you like to order today?", greeting_path)
+        intro_text = "Hi there! Welcome to Cactus Club Cafe. What would you like to order today?"
+        print("🎙️ Generating intro greeting...")
+        text_to_speech_elevenlabs(intro_text, output_path=greeting_path)
 
 def generate_intro_with_ambiance():
-    """Generate combined greeting with background ambiance."""
+    """Overlay ambiance onto greeting audio."""
     greeting_path = "static/greeting.mp3"
     ambiance_path = "static/restaurant_ambiance.mp3"
     combined_path = "static/combined_greeting.mp3"
@@ -116,16 +126,17 @@ def generate_intro_with_ambiance():
         greeting = AudioSegment.from_mp3(greeting_path)
         ambiance = AudioSegment.from_mp3(ambiance_path) - 10
         if len(ambiance) < len(greeting):
-            ambiance *= (len(greeting) // len(ambiance)) + 1
+            ambiance *= int(len(greeting) / len(ambiance)) + 1
         ambiance = ambiance[:len(greeting)]
-        greeting.overlay(ambiance).export(combined_path, format="mp3")
+        combined = greeting.overlay(ambiance)
+        combined.export(combined_path, format="mp3")
         print("🎧 Combined greeting with ambiance created.")
 
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
     """Add an item to the customer's order."""
     known_items = ["Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet", "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"]
-    if item.lower() in [i.lower() for i in known_items]:
+    if item.lower() in [k.lower() for k in known_items]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
     else:
@@ -182,13 +193,11 @@ def init_state() -> AgentState:
         summary=""
     )
 
-# Graph setup
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool])
-
+# Build graph
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
 builder.add_node("llm_node", RunnableLambda(gemini_node))
-builder.add_node("tool_node", tool_node)
+builder.add_node("tool_node", ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool]))
 
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
@@ -209,14 +218,11 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-
-    if len(session_state["messages"]) == 1:
-        session_state["messages"] = [
-            SystemMessage(content=MENU_PROMPT),
-            HumanMessage(content="User seems to be asking for help with ordering."),
-            *session_state["messages"]
-        ]
-
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User seems to be asking for help about ordering."),
+        *session_state["messages"]
+    ]
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -233,20 +239,13 @@ def process_voice():
             response.play(fallback_audio_url)
         else:
             response.say("Sorry, something went wrong.")
-
-        # 👇 Add gather here to keep listening
-        gather = Gather(
-            input='speech',
-            timeout=3,
-            speech_timeout='auto',
-            action='/process_voice',
-            method='POST',
-            language='en-US'
-        )
-        response.append(gather)
         return str(response)
 
-    # Get Gemini response
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User called and is trying to place or ask about order."),
+        *session_state["messages"]
+    ]
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
@@ -258,40 +257,26 @@ def process_voice():
     else:
         response.say("Sorry, I couldn't generate a response right now.")
 
-    # ✅ Append Gather again to keep conversation open
-    if not any(x in speech_result.lower() for x in ["bye", "that's all", "thank you"]):
-        gather = Gather(
-            input='speech',
-            timeout=3,
-            speech_timeout='auto',
-            action='/process_voice',
-            method='POST',
-            language='en-US'
-        )
-        response.append(gather)
-    else:
-        response.say("Thanks for your order. Goodbye!")
-
     return str(response)
 
 @app.route("/voice", methods=["POST"])
 def voice():
     response = VoiceResponse()
     response.play(f"https://{request.host}/static/combined_greeting.mp3")
-
     gather = Gather(
         input='speech',
         timeout=3,
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='en-US'  # Default to English
+        language='en-US',  # optionally add: en-IN for Indian English or detect dynamically
+        hints='English Hindi Punjabi',  # helps recognition
+        profanity_filter='false'
     )
     response.append(gather)
     response.redirect('/voice')
     return str(response)
-    
-# Generate intro files
+
 generate_intro_audio()
 generate_intro_with_ambiance()
 
