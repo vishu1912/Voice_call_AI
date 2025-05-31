@@ -164,14 +164,26 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
-    state["messages"] = [
+    last_msg = state["messages"][-1].content.lower()
+    done_keywords = ["that's all", "done", "complete", "no more", "ready to checkout"]
+
+    # ✅ Always prepend prompt + phone/chat signal to help Gemini stay grounded
+    context_msgs = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking for help about ordering."),
-        *state["messages"]
+        HumanMessage(content="User seems to be interacting via phone or chatbot."),
+        *state["messages"][-4:]  # Keep only last 4 user messages to stay within limits
     ]
-    response = gemini_llm.invoke(state["messages"])
+
+    response = gemini_llm.invoke(context_msgs)
     state["messages"].append(response)
-    state["summary"] = response.content
+
+    # ✅ Trigger summary if user says they’re done
+    if any(keyword in last_msg for keyword in done_keywords):
+        summary = generate_order_summary(state)
+        state.update(summary)
+    else:
+        state["summary"] = response.content
+
     return state
 
 def fixed_tools_condition(state: AgentState):
@@ -216,6 +228,13 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
+    
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User seems to be asking for help about ordering."),
+        *session_state["messages"]
+    ]
+    
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -226,27 +245,34 @@ def process_voice():
     response = VoiceResponse()
 
     if not speech_result:
-        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you say it again?")
+        # fallback audio
+        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
         if fallback_audio_path:
-            response.play(f"https://{request.host}/static/reply.mp3")
+            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
+            response.play(fallback_audio_url)
         else:
             response.say("Sorry, something went wrong.")
         return str(response)
+
+    # ✨ Inject guidance and history
+    session_state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User seems to be asking for help about ordering."),
+        *session_state["messages"]
+    ]
 
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
+    # TTS
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
-        response.play(f"https://{request.host}/static/reply.mp3")
+        audio_url = f"https://{request.host}/static/reply.mp3"
+        response.play(audio_url)
     else:
-        response.say("Sorry, I couldn’t reply just now.")
+        response.say("Sorry, I couldn't generate a response right now.")
 
-    gather = Gather(
-        input='speech', timeout=3, speech_timeout='auto', action='/process_voice', method='POST', language='en-US'
-    )
-    response.append(gather)
     return str(response)
 
 @app.route("/voice", methods=["POST"])
