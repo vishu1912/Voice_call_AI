@@ -233,15 +233,20 @@ def process_voice():
             response.play(fallback_audio_url)
         else:
             response.say("Sorry, something went wrong.")
+
+        # 👇 Add gather here to keep listening
+        gather = Gather(
+            input='speech',
+            timeout=3,
+            speech_timeout='auto',
+            action='/process_voice',
+            method='POST',
+            language='en-US'
+        )
+        response.append(gather)
         return str(response)
 
-    if len(session_state["messages"]) == 1:
-        session_state["messages"] = [
-            SystemMessage(content=MENU_PROMPT),
-            HumanMessage(content="User seems to be asking for help with ordering."),
-            *session_state["messages"]
-        ]
-
+    # Get Gemini response
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
@@ -252,6 +257,20 @@ def process_voice():
         response.play(audio_url)
     else:
         response.say("Sorry, I couldn't generate a response right now.")
+
+    # ✅ Append Gather again to keep conversation open
+    if not any(x in speech_result.lower() for x in ["bye", "that's all", "thank you"]):
+        gather = Gather(
+            input='speech',
+            timeout=3,
+            speech_timeout='auto',
+            action='/process_voice',
+            method='POST',
+            language='en-US'
+        )
+        response.append(gather)
+    else:
+        response.say("Thanks for your order. Goodbye!")
 
     return str(response)
 
