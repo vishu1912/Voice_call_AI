@@ -44,7 +44,7 @@ class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
-    
+
 def send_order_email(summary: str):
     sender = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
@@ -80,7 +80,7 @@ def send_order_email(summary: str):
 
 def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     api_key = os.getenv("ELEVEN_API_KEY")
-    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel as default
+    voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
 
@@ -110,7 +110,7 @@ def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     else:
         print("❌ ElevenLabs Error:", response.text)
         return None
-        
+
 def generate_intro_with_ambiance():
     greeting_path = "static/greeting.mp3"
     ambiance_path = "static/restaurant_ambiance.mp3"
@@ -118,31 +118,25 @@ def generate_intro_with_ambiance():
 
     if not os.path.exists(combined_path) and os.path.exists(greeting_path) and os.path.exists(ambiance_path):
         greeting = AudioSegment.from_mp3(greeting_path)
-        ambiance = AudioSegment.from_mp3(ambiance_path) - 10  # Reduce volume a bit
+        ambiance = AudioSegment.from_mp3(ambiance_path) - 10
 
-        # Loop ambiance to be same length as greeting or longer
         if len(ambiance) < len(greeting):
             loop_count = int(len(greeting) / len(ambiance)) + 1
             ambiance = ambiance * loop_count
 
-        ambiance = ambiance[:len(greeting)]  # Match lengths
+        ambiance = ambiance[:len(greeting)]
 
-        # Overlay ambiance *under* the greeting
         combined = greeting.overlay(ambiance)
-
-        # Export merged file
         combined.export(combined_path, format="mp3")
         print("🎧 Combined greeting with ambiance created.")
 
-# Tools
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
     known_items = [
         "Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet",
         "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"
     ]
-    if item.lower() in known_items:
+    if item.lower() in [k.lower() for k in known_items]:
         state["order"].append(item)
         state["summary"] = f"✅ Added {item} to your order."
     else:
@@ -151,7 +145,6 @@ def add_to_order(item: str, state: AgentState) -> AgentState:
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
     if not state["order"]:
         state["summary"] = "🧾 Your order is currently empty."
     else:
@@ -168,10 +161,8 @@ def generate_intro_audio():
         print("🎙️ Generating intro greeting...")
         text_to_speech_elevenlabs(intro_text, output_path=greeting_path)
 
-
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
-    """Send the current order summary to the store email."""
     if not state.get("summary"):
         state["summary"] = "❌ No summary available to email."
         return state
@@ -182,13 +173,7 @@ def send_order_email_tool(state: AgentState) -> AgentState:
     except Exception as e:
         state["summary"] = f"❌ Failed to send order email: {str(e)}"
     return state
-    
-@tool
-def casual_response_tool(state: AgentState) -> AgentState:
-    """Used for natural responses when no specific tool matches."""
-    return state  # Just echoes back Gemini response from `summary`
 
-# LangGraph nodes
 def user_message_node(state: AgentState) -> AgentState:
     print(f"User message: {state['messages'][-1].content}")
     return state
@@ -205,13 +190,10 @@ def fixed_tools_condition(state: AgentState):
     if not tool_calls:
         return "default"
     tool_call = tool_calls[0]
-    tool_name = tool_call["tool"]
-    if tool_name in ["add_to_order", "generate_order_summary", "send_order_email"]:
-        return tool_name
-    else:
-        return "casual_response_tool"
+    if isinstance(tool_call, dict) and "tool" in tool_call:
+        return tool_call["tool"]
+    return "default"
 
-# Initial state
 def init_state() -> AgentState:
     return AgentState(
         messages=[SystemMessage(content=MENU_PROMPT)],
@@ -219,8 +201,7 @@ def init_state() -> AgentState:
         summary=""
     )
 
-# Build graph
-tool_node = ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool, casual_response_tool])
+tool_node = ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool])
 
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
@@ -239,7 +220,6 @@ builder.add_edge("tool_node", END)
 pbx_flow = builder.compile()
 session_state = init_state()
 
-# Routes
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -247,14 +227,11 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-
-    # Insert context starter
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking about their order."),
-        *session_state["messages"],
+        HumanMessage(content="User seems to be asking for help about ordering."),
+        *session_state["messages"]
     ]
-
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -273,13 +250,12 @@ def process_voice():
             response.say("Sorry, something went wrong.")
         return str(response)
 
-    # Add system memory adjustment here
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking about their order."),
-        HumanMessage(content=speech_result),
+        HumanMessage(content="User is speaking to the assistant over phone call."),
+        *session_state["messages"]
     ]
-
+    session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
@@ -296,7 +272,6 @@ def process_voice():
 def voice():
     response = VoiceResponse()
 
-    # Greeting using ElevenLabs voice (already pre-generated)
     response.play(f"https://{request.host}/static/combined_greeting.mp3")
 
     gather = Gather(
@@ -305,10 +280,10 @@ def voice():
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='en-US'
+        language='en-US',  # Default to English, can be changed dynamically
+        enhanced=True
     )
     response.append(gather)
-
     response.redirect('/voice')
     return str(response)
 
