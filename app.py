@@ -273,18 +273,28 @@ def process_voice():
 @app.route("/voice", methods=["POST"])
 def voice():
     response = VoiceResponse()
+
+    # Greeting using ElevenLabs voice (already pre-generated)
     response.play(f"https://{request.host}/static/combined_greeting.mp3")
+
     gather = Gather(
         input='speech',
         timeout=3,
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='en-US',
-        enhanced=True
+        language='en-US'
     )
     response.append(gather)
-    response.redirect('/voice')
+
+    # If there's no input, check if we've already looped once
+    if "looped" not in session:
+        session["looped"] = True
+        response.redirect('/voice')
+    else:
+        response.say("Still nothing. Goodbye!")
+        response.hangup()
+
     return str(response)
 
 
