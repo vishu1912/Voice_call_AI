@@ -209,14 +209,14 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-    
-    # Optional contextual boost
-    session_state["messages"] = [
-        SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User is chatting through the website."),
-        *session_state["messages"]
-    ]
-    
+
+    if len(session_state["messages"]) == 1:
+        session_state["messages"] = [
+            SystemMessage(content=MENU_PROMPT),
+            HumanMessage(content="User seems to be asking for help with ordering."),
+            *session_state["messages"]
+        ]
+
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -235,13 +235,13 @@ def process_voice():
             response.say("Sorry, something went wrong.")
         return str(response)
 
-    # Optional voice context injection
-    session_state["messages"] = [
-        SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User is interacting over phone call."),
-        *session_state["messages"]
-    ]
-    
+    if len(session_state["messages"]) == 1:
+        session_state["messages"] = [
+            SystemMessage(content=MENU_PROMPT),
+            HumanMessage(content="User seems to be asking for help with ordering."),
+            *session_state["messages"]
+        ]
+
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
@@ -259,18 +259,19 @@ def process_voice():
 def voice():
     response = VoiceResponse()
     response.play(f"https://{request.host}/static/combined_greeting.mp3")
+
     gather = Gather(
         input='speech',
         timeout=3,
         speech_timeout='auto',
         action='/process_voice',
         method='POST',
-        language='en-US'
+        language='en-US'  # Default to English
     )
     response.append(gather)
     response.redirect('/voice')
     return str(response)
-
+    
 # Generate intro files
 generate_intro_audio()
 generate_intro_with_ambiance()
