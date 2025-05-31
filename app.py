@@ -19,11 +19,11 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from twilio.twiml.voice_response import VoiceResponse, Gather
 
-# Load environment variables
+# Load env
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Initialize Flask app
+# Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "filesystem"
@@ -33,20 +33,18 @@ Session(app)
 with open("menu_prompt.txt", "r") as f:
     MENU_PROMPT = f.read()
 
-# Initialize Gemini LLM
+# Gemini LLM setup
 gemini_llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     api_key=GOOGLE_API_KEY
 )
 
-# Define the state type
 class AgentState(TypedDict):
     messages: List[HumanMessage]
     order: List[str]
     summary: str
 
 def send_order_email(summary: str):
-    """Send an order summary to a preset email using Gmail SMTP."""
     sender = os.getenv("EMAIL_USER")
     password = os.getenv("EMAIL_PASS")
     recipient = os.getenv("TO_EMAIL")
@@ -67,8 +65,7 @@ def send_order_email(summary: str):
       </body>
     </html>
     """
-    part = MIMEText(html, "html")
-    msg.attach(part)
+    msg.attach(MIMEText(html, "html"))
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -79,22 +76,16 @@ def send_order_email(summary: str):
         print("❌ Failed to send email:", e)
 
 def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
-    """Convert text to speech using ElevenLabs and save to mp3."""
     api_key = os.getenv("ELEVEN_API_KEY")
     voice_id = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
-
-    # Add filler words if appropriate
-    fillers = ["Okay...", "Sure...", "Nice choice...", "Umm..."]
-    text = f"{fillers[0]} {text}"  # You can randomize or contextualize this
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
     headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
     payload = {
         "text": text,
         "model_id": "eleven_monolingual_v1",
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
+        "voice_settings": {"stability": 0.4, "similarity_boost": 0.85}
     }
-
     response = requests.post(url, headers=headers, json=payload, stream=True)
 
     if response.status_code == 200:
@@ -109,15 +100,12 @@ def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
         return None
 
 def generate_intro_audio():
-    """Generate a greeting intro audio clip using ElevenLabs."""
     greeting_path = "static/greeting.mp3"
     if not os.path.exists(greeting_path):
-        intro_text = "Hi there! Welcome to Cactus Club Cafe. What would you like to order today?"
-        print("🎙️ Generating intro greeting...")
+        intro_text = "Hey there... welcome to Cactus Club Cafe. What are you in the mood for today?"
         text_to_speech_elevenlabs(intro_text, output_path=greeting_path)
 
 def generate_intro_with_ambiance():
-    """Overlay ambiance onto greeting audio."""
     greeting_path = "static/greeting.mp3"
     ambiance_path = "static/restaurant_ambiance.mp3"
     combined_path = "static/combined_greeting.mp3"
@@ -126,7 +114,8 @@ def generate_intro_with_ambiance():
         greeting = AudioSegment.from_mp3(greeting_path)
         ambiance = AudioSegment.from_mp3(ambiance_path) - 10
         if len(ambiance) < len(greeting):
-            ambiance *= int(len(greeting) / len(ambiance)) + 1
+            loop_count = int(len(greeting) / len(ambiance)) + 1
+            ambiance = ambiance * loop_count
         ambiance = ambiance[:len(greeting)]
         combined = greeting.overlay(ambiance)
         combined.export(combined_path, format="mp3")
@@ -134,36 +123,40 @@ def generate_intro_with_ambiance():
 
 @tool
 def add_to_order(item: str, state: AgentState) -> AgentState:
-    """Add an item to the customer's order."""
-    known_items = ["Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet", "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12"]
-    if item.lower() in [k.lower() for k in known_items]:
+    """Add a dish to the order. Supports known menu items only."""
+    known_items = [
+        "Tawa Paranthas", "Classic Waffle", "Acai Bowl", "Chicken and Waffle with Compressed Watermelon", "Garden Roti", "Squash Shakshuka Skillet",
+        "Pune Style Poh", "Veg Lunch Special", "Traditional Pakora", "Aberfeldy 21, Highlands", "Redbreast 12", "Avocado Dip"
+    ]
+    fillers = ["Okay...", "Nice choice!", "Alright...", "Umm..."]
+    if item in known_items:
         state["order"].append(item)
-        state["summary"] = f"✅ Added {item} to your order."
+        state["summary"] = f"{fillers[0]} so {item} added to your order. Anything else?"
     else:
-        state["summary"] = f"❌ Sorry, {item} is not on the menu."
+        state["summary"] = f"Hmm... I didn’t catch that on the menu. Could you say it again?"
     return state
 
 @tool
 def generate_order_summary(state: AgentState) -> AgentState:
-    """Generate a summary of the current order."""
+    """Summarize the current order items before proceeding."""
     if not state["order"]:
-        state["summary"] = "🧾 Your order is currently empty."
+        state["summary"] = "So far, your order looks empty. Want to start with something light like an appetizer?"
     else:
-        lines = ["\n🧾 Your Order Summary:"] + [f"- {item}" for item in state["order"]]
+        lines = ["Here's what I got so far:"] + [f"- {item}" for item in state["order"]]
         state["summary"] = "\n".join(lines)
     return state
 
 @tool
 def send_order_email_tool(state: AgentState) -> AgentState:
-    """Send the current order summary via email."""
+    """Send the current order summary to the store email."""
     if not state.get("summary"):
-        state["summary"] = "❌ No summary available to email."
+        state["summary"] = "Hmm... nothing to send yet. Try placing something in the order."
         return state
     try:
         send_order_email(state["summary"])
-        state["summary"] = "📧 Your order has been emailed to the store successfully!"
+        state["summary"] = "📧 Your order has been emailed. We'll have it ready for you!"
     except Exception as e:
-        state["summary"] = f"❌ Failed to send order email: {str(e)}"
+        state["summary"] = f"Oops, something went wrong emailing the order: {str(e)}"
     return state
 
 def user_message_node(state: AgentState) -> AgentState:
@@ -171,6 +164,11 @@ def user_message_node(state: AgentState) -> AgentState:
     return state
 
 def gemini_node(state: AgentState) -> AgentState:
+    state["messages"] = [
+        SystemMessage(content=MENU_PROMPT),
+        HumanMessage(content="User seems to be asking for help about ordering."),
+        *state["messages"]
+    ]
     response = gemini_llm.invoke(state["messages"])
     state["messages"].append(response)
     state["summary"] = response.content
@@ -193,17 +191,17 @@ def init_state() -> AgentState:
         summary=""
     )
 
-# Build graph
+# LangGraph build
 builder = StateGraph(AgentState)
 builder.add_node("user_node", RunnableLambda(user_message_node))
 builder.add_node("llm_node", RunnableLambda(gemini_node))
 builder.add_node("tool_node", ToolNode(tools=[add_to_order, generate_order_summary, send_order_email_tool]))
-
 builder.set_entry_point("user_node")
 builder.add_edge("user_node", "llm_node")
 builder.add_conditional_edges("llm_node", fixed_tools_condition, {
     "add_to_order": "tool_node",
     "generate_order_summary": "tool_node",
+    "send_order_email_tool": "tool_node",
     "default": END
 })
 builder.add_edge("tool_node", END)
@@ -218,11 +216,6 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
-    session_state["messages"] = [
-        SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking for help about ordering."),
-        *session_state["messages"]
-    ]
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -233,30 +226,27 @@ def process_voice():
     response = VoiceResponse()
 
     if not speech_result:
-        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
+        fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you say it again?")
         if fallback_audio_path:
-            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
-            response.play(fallback_audio_url)
+            response.play(f"https://{request.host}/static/reply.mp3")
         else:
             response.say("Sorry, something went wrong.")
         return str(response)
 
-    session_state["messages"] = [
-        SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User called and is trying to place or ask about order."),
-        *session_state["messages"]
-    ]
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
-        audio_url = f"https://{request.host}/static/reply.mp3"
-        response.play(audio_url)
+        response.play(f"https://{request.host}/static/reply.mp3")
     else:
-        response.say("Sorry, I couldn't generate a response right now.")
+        response.say("Sorry, I couldn’t reply just now.")
 
+    gather = Gather(
+        input='speech', timeout=3, speech_timeout='auto', action='/process_voice', method='POST', language='en-US'
+    )
+    response.append(gather)
     return str(response)
 
 @app.route("/voice", methods=["POST"])
@@ -264,14 +254,7 @@ def voice():
     response = VoiceResponse()
     response.play(f"https://{request.host}/static/combined_greeting.mp3")
     gather = Gather(
-        input='speech',
-        timeout=3,
-        speech_timeout='auto',
-        action='/process_voice',
-        method='POST',
-        language='en-US',  # optionally add: en-IN for Indian English or detect dynamically
-        hints='English Hindi Punjabi',  # helps recognition
-        profanity_filter='false'
+        input='speech', timeout=3, speech_timeout='auto', action='/process_voice', method='POST', language='en-US'
     )
     response.append(gather)
     response.redirect('/voice')
