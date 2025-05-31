@@ -226,11 +226,13 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.get_json().get("message")
+
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
         HumanMessage(content="User seems to be asking for help about ordering."),
         *session_state["messages"]
     ]
+
     session_state["messages"].append(HumanMessage(content=user_input))
     updated_state = pbx_flow.invoke(session_state)
     return jsonify({"response": updated_state["summary"]})
@@ -244,25 +246,24 @@ def process_voice():
     if not speech_result:
         fallback_audio_path = text_to_speech_elevenlabs("Sorry, I didn't catch that. Could you please repeat?")
         if fallback_audio_path:
-            fallback_audio_url = f"https://{request.host}/static/reply.mp3"
-            response.play(fallback_audio_url)
+            response.play(f"https://{request.host}/static/reply.mp3")
         else:
             response.say("Sorry, something went wrong.")
         return str(response)
 
     session_state["messages"] = [
         SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User is speaking to the assistant over phone call."),
+        HumanMessage(content="User is interacting via phone and seems to want to place or ask about an order."),
         *session_state["messages"]
     ]
+
     session_state["messages"].append(HumanMessage(content=speech_result))
     updated_state = pbx_flow.invoke(session_state)
     reply_text = updated_state["summary"]
 
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
-        audio_url = f"https://{request.host}/static/reply.mp3"
-        response.play(audio_url)
+        response.play(f"https://{request.host}/static/reply.mp3")
     else:
         response.say("Sorry, I couldn't generate a response right now.")
 
