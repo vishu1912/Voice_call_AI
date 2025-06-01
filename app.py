@@ -1,6 +1,7 @@
 import os
 import smtplib
 import requests
+import random
 from pydub import AudioSegment
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -73,7 +74,14 @@ def send_order_email(summary: str):
     except Exception as e:
         print("❌ Failed to send email:", e)
 
-
+def add_filler_words(text):
+    fillers = ["you know", "I mean", "like", "let me think", "hmm"]
+    if "?" in text or text.strip().endswith("..."):
+        return f"{random.choice(fillers)}, {text}"
+    if len(text.split()) < 6:
+        return f"{text}, {random.choice(fillers)}"
+    return text
+    
 def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     """Convert text to speech using ElevenLabs API."""
     api_key = os.getenv("ELEVEN_API_KEY")
@@ -84,8 +92,12 @@ def text_to_speech_elevenlabs(text, output_path="static/reply.mp3"):
     payload = {
         "text": text,
         "model_id": "eleven_monolingual_v1",
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
+        "voice_settings": {"stability": 0.3,           # Lower = more expressive
+        "similarity_boost": 0.9,    # Higher = closer to original voice style
+        "style": 1.0,               # Adds variation in tone (0.0 - 1.0)
+        "use_speaker_boost": True   # Makes voice clearer over calls
     }
+        }
 
     response = requests.post(url, headers=headers, json=payload, stream=True)
 
@@ -213,9 +225,8 @@ def chat():
 
     # Add intent priming
     session_state["messages"] = [
-        SystemMessage(content=MENU_PROMPT),
-        HumanMessage(content="User seems to be asking for help about ordering."),
-        *session_state["messages"]
+    SystemMessage(content="You are a cheerful, casual restaurant assistant. Be friendly and helpful."),
+    *session_state["messages"]
     ]
 
     updated_state = pbx_flow.invoke(session_state)
@@ -244,7 +255,7 @@ def process_voice():
     session_state["messages"].append(HumanMessage(content=speech_result))
 
     updated_state = pbx_flow.invoke(session_state)
-    reply_text = updated_state["summary"]
+    reply_text = add_filler_words(updated_state["summary"])
 
     audio_path = text_to_speech_elevenlabs(reply_text)
     if audio_path:
@@ -265,6 +276,7 @@ def voice():
         timeout=3,
         speech_timeout='auto',
         action='/process_voice',
+        hints='menu, order, food, pizza, paratha, biryani, water, coke, yes, no',
         method='POST',
         language='en-US'  # Default to English
     )
